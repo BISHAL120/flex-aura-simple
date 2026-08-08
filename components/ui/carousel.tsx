@@ -95,12 +95,17 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return
-    onSelect(api)
-    api.on("reInit", onSelect)
-    api.on("select", onSelect)
+    // Sync initial scroll state without calling setState synchronously in the
+    // effect body (react-hooks/set-state-in-effect). Deferring to a microtask
+    // still settles state before paint.
+    const handleSelect = () => onSelect(api)
+    queueMicrotask(handleSelect)
+    api.on("reInit", handleSelect)
+    api.on("select", handleSelect)
 
     return () => {
-      api?.off("select", onSelect)
+      api?.off("select", handleSelect)
+      api?.off("reInit", handleSelect)
     }
   }, [api, onSelect])
 
