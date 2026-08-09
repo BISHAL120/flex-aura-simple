@@ -70,8 +70,8 @@ export default function OrderConfirmationPage() {
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <MailIcon className="size-4" />
         Questions about your order? Email{" "}
-        <a href="mailto:hello@flexaura.com" className="font-medium text-foreground underline underline-offset-2">
-          hello@flexaura.com
+        <a href="mailto:hello@flexaurametal.com" className="font-medium text-foreground underline underline-offset-2">
+          hello@flexaurametal.com
         </a>
       </div>
 

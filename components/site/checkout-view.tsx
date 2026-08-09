@@ -191,7 +191,7 @@ export function CheckoutView() {
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="city">City</Label>
-                <Input id="city" name="city" autoComplete="address-level2" required placeholder="San Francisco" />
+                <Input id="city" name="city" autoComplete="address-level2" required placeholder="Dhaka" />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="zip">ZIP</Label>

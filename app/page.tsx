@@ -16,9 +16,9 @@ import { Button } from "@/components/ui/button"
 import { getBestSellers, getNewArrivals } from "@/lib/data"
 
 export const metadata: Metadata = {
-  title: "Flex Aura — Shop the Collection",
+  title: "Flex Aura — Laser-Cut Metal Art",
   description:
-    "Curated fashion, accessories, home and tech. Best sellers, new arrivals and seasonal deals.",
+    "Precision laser-cut 2mm metal wall art of your favourite cars, bikes and custom designs — premium black powder coat, custom sizes, backlit LED options.",
 }
 
 export default function Page() {
@@ -35,7 +35,7 @@ export default function Page() {
             id="best-sellers-heading"
             align="left"
             eyebrow="Bestsellers"
-            title="Best Sellers"
+            title="Fan Favourites"
             description="The pieces our customers keep coming back for."
           />
           <Button
@@ -62,9 +62,9 @@ export default function Page() {
           <SectionHeading
             id="offers-heading"
             align="left"
-            eyebrow="Offers"
-            title="Live promotions"
-            description="Two campaigns running right now — tap through to shop the deal."
+            eyebrow="Made to order"
+            title="Custom & Backlit"
+            description="Names, logos, dates and designs — cut in metal and lit with warm LEDs."
           />
           <Button
             variant="outline"
@@ -85,8 +85,8 @@ export default function Page() {
             id="new-arrivals-heading"
             align="left"
             eyebrow="Just landed"
-            title="New Arrivals"
-            description="Fresh drops added this week across tech, fashion and home."
+            title="New Drops"
+            description="Fresh cuts added this week across cars, bikes and aviation."
           />
           <Button
             variant="outline"

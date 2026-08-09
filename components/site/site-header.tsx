@@ -33,8 +33,8 @@ import { cn } from "@/lib/utils"
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Shop", href: "/shop" },
-  { label: "Summer Sale", href: "/promotions/summer-sale" },
-  { label: "Clearance", href: "/promotions/clearance" },
+  { label: "Custom Metal Art", href: "/promotions/custom-metal-art" },
+  { label: "Backlit LED", href: "/promotions/backlit-collection" },
   { label: "About Us", href: "/about" },
   { label: "Contact", href: "/contact" },
 ]
@@ -133,10 +133,10 @@ export function SiteHeader() {
               <TruckIcon className="size-3.5" /> Free shipping over $50
             </span>
             <span className="inline-flex items-center gap-1">
-              <RotateCcwIcon className="size-3.5" /> 30-day returns
+              <RotateCcwIcon className="size-3.5" /> 2mm laser-cut metal
             </span>
             <span className="inline-flex items-center gap-1">
-              <HeadsetIcon className="size-3.5" /> 24/7 support
+              <HeadsetIcon className="size-3.5" /> Custom sizes available
             </span>
           </p>
           <p>Welcome to Flex Aura</p>

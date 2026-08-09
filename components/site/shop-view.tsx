@@ -20,7 +20,7 @@ import { products, type Product } from "@/lib/data"
 
 type SortKey = "featured" | "price-asc" | "price-desc" | "rating" | "newest"
 
-const CATEGORIES = ["All", "Fashion", "Accessories", "Home", "Tech"] as const
+const CATEGORIES = ["All", "Cars", "Motorcycles", "Custom & Backlit", "Abstract"] as const
 const SORT_KEYS: SortKey[] = ["featured", "price-asc", "price-desc", "rating", "newest"]
 
 function isCategory(value: string): value is (typeof CATEGORIES)[number] {
@@ -32,10 +32,10 @@ function isSortKey(value: string): value is SortKey {
 }
 
 function productCategory(product: Product): (typeof CATEGORIES)[number] {
-  if (product.tags.some((t) => t === "fashion")) return "Fashion"
-  if (product.tags.some((t) => t === "accessories")) return "Accessories"
-  if (product.tags.some((t) => t === "tech")) return "Tech"
-  return "Home"
+  if (product.tags.includes("custom") || product.tags.includes("backlit")) return "Custom & Backlit"
+  if (product.tags.includes("motorcycle")) return "Motorcycles"
+  if (product.tags.includes("abstract")) return "Abstract"
+  return "Cars"
 }
 
 export function ShopView() {
@@ -105,9 +105,9 @@ export function ShopView() {
       <SectionHeading
         align="left"
         eyebrow="Shop"
-        title="All products"
+        title="Metal Art Collection"
         as="h1"
-        description="Every product in the Flex Aura collection — search, sort and filter to find your next favourite."
+        description="Laser-cut 2mm metal wall art — cars, bikes, custom designs and backlit LED pieces, made to order in your size."
         className="mb-8"
       />
 

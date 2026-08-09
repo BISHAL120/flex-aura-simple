@@ -10,33 +10,33 @@ import { Newsletter } from "@/components/site/newsletter"
 export const metadata: Metadata = {
   title: "Contact Us — Flex Aura",
   description:
-    "Questions about an order, a product or a return? The Flex Aura team is here to help — reach out any time.",
+    "Questions about a piece, a custom design or an order? The Flex Aura metal art team is here to help — reach out any time.",
 }
 
 const contactDetails = [
   {
     icon: MailIcon,
     label: "Email",
-    value: "hello@flexaura.com",
+    value: "hello@flexaurametal.com",
     note: "We reply within one business day",
   },
   {
     icon: PhoneIcon,
-    label: "Phone",
-    value: "+1 (555) 123-4567",
-    note: "Mon–Fri, 9am–6pm PT",
+    label: "Phone / WhatsApp",
+    value: "+880 1623-939834",
+    note: "Fastest for custom order enquiries",
   },
   {
     icon: MapPinIcon,
-    label: "Store & HQ",
-    value: "128 Market Street, San Francisco, CA",
-    note: "Visit us for a hands-on browse",
+    label: "Workshop",
+    value: "Custom metal art, made to order",
+    note: "We ship worldwide",
   },
   {
     icon: ClockIcon,
     label: "Support hours",
     value: "24/7 online support",
-    note: "Live chat and email always open",
+    note: "WhatsApp and email always open",
   },
 ]
 
@@ -47,8 +47,8 @@ export default function ContactPage() {
         <Container className="flex flex-col gap-10">
           <SectionHeading
             eyebrow="Contact"
-            title="We'd love to hear from you"
-            description="Order questions, product advice, or just to say hi — pick whichever channel works best."
+            title="Let's cut something great"
+            description="Custom design enquiries, size questions, or just to say hi — pick whichever channel works best."
           />
 
           <div className="grid gap-6 lg:grid-cols-2">

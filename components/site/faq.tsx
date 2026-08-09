@@ -11,7 +11,7 @@ import {
 import { faqs } from "@/lib/data"
 
 const FAQ_IMAGE =
-  "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80"
+  "/products/product5.jpeg"
 
 export function FAQ() {
   return (
@@ -30,7 +30,7 @@ export function FAQ() {
           <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-lg lg:aspect-auto lg:w-[42%] lg:min-h-[320px]">
             <Image
               src={FAQ_IMAGE}
-              alt="Flex Aura support team"
+              alt="Nissan GT-R R35 laser-cut metal wall art"
               fill
               sizes="(max-width: 1024px) 100vw, 42vw"
               className="object-cover"

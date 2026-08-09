@@ -5,8 +5,9 @@ import { PageShell } from "@/components/site/page-shell"
 import { ShopView } from "@/components/site/shop-view"
 
 export const metadata: Metadata = {
-  title: "Shop All — Flex Aura",
-  description: "Browse the full Flex Aura collection — fashion, accessories, home and tech.",
+  title: "Shop Metal Art — Flex Aura",
+  description:
+    "Laser-cut 2mm metal wall art — cars, bikes, custom designs and backlit LED pieces, made to order in your size.",
 }
 
 export default function ShopPage() {

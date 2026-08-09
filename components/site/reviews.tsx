@@ -23,7 +23,7 @@ export function Reviews() {
         <SectionHeading
           eyebrow="Reviews"
           title="What our customers say"
-          description="Real feedback from real shoppers — over 20,000 happy customers and counting."
+          description="Real feedback from real walls — over 20,000 pieces shipped and counting."
         />
         <div
           id="reviews-list"

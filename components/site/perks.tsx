@@ -1,26 +1,26 @@
 import { Container } from "@/components/site/container"
-import { TruckIcon, RotateCcwIcon, ShieldCheckIcon, HeadsetIcon } from "lucide-react"
+import { TruckIcon, ScissorsIcon, RulerIcon, HeadsetIcon } from "lucide-react"
 
 const perks = [
+  {
+    icon: ScissorsIcon,
+    title: "Laser-Cut Precision",
+    description: "2mm steel, cut to the finest detail",
+  },
+  {
+    icon: RulerIcon,
+    title: "Custom Sizes",
+    description: "Any design, resized to fit your wall",
+  },
   {
     icon: TruckIcon,
     title: "Free Shipping",
     description: "On all orders over $50",
   },
   {
-    icon: RotateCcwIcon,
-    title: "Easy Returns",
-    description: "30-day hassle-free returns",
-  },
-  {
-    icon: ShieldCheckIcon,
-    title: "Secure Payment",
-    description: "PCI-DSS compliant checkout",
-  },
-  {
     icon: HeadsetIcon,
     title: "24/7 Support",
-    description: "We're here whenever you need",
+    description: "WhatsApp & email, always open",
   },
 ]
 

@@ -5,7 +5,7 @@ import { CartView } from "@/components/site/cart-view"
 
 export const metadata: Metadata = {
   title: "Your Cart — Flex Aura",
-  description: "Review the items in your Flex Aura cart before checking out.",
+  description: "Review the metal art pieces in your Flex Aura cart before checking out.",
 }
 
 export default function CartPage() {

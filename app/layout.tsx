@@ -15,13 +15,13 @@ const fontMono = Geist_Mono({
 })
 
 export const metadata = {
-  title: "Flex Aura — Shop the Collection",
+  title: "Flex Aura — Laser-Cut Metal Art",
   description:
-    "Flex Aura is your destination for curated fashion, accessories, home and tech. Best sellers, new arrivals and seasonal deals.",
+    "Precision laser-cut 2mm metal wall art of your favourite cars, bikes and custom designs. Premium black powder coat, custom sizes, backlit LED options.",
   openGraph: {
-    title: "Flex Aura — Shop the Collection",
+    title: "Flex Aura — Laser-Cut Metal Art",
     description:
-      "Curated fashion, accessories, home and tech. Best sellers, new arrivals and seasonal deals.",
+      "Laser-cut 2mm metal wall art — cars, bikes, custom designs and backlit LED pieces, made to order in your size.",
   },
 }
 

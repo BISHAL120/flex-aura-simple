@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import Image from "next/image"
-import { GemIcon, LeafIcon, HeartHandshakeIcon, SparklesIcon } from "lucide-react"
+import { FlameIcon, RulerIcon, HeartHandshakeIcon, SparklesIcon } from "lucide-react"
 
 import { Container } from "@/components/site/container"
 import { PageShell } from "@/components/site/page-shell"
@@ -10,47 +10,47 @@ import { Newsletter } from "@/components/site/newsletter"
 export const metadata: Metadata = {
   title: "About Us — Flex Aura",
   description:
-    "Flex Aura curates fashion, accessories, home and tech with a focus on quality, fair pricing and customer care.",
+    "Flex Aura laser-cuts 2mm metal wall art of your favourite cars, bikes and custom designs — made to order, in your size.",
 }
 
 const HERO_IMAGE =
-  "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1600&q=80"
+  "/products/product1.webp"
 
-const TEAM_IMAGE =
-  "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1600&q=80"
+const WORKSHOP_IMAGE =
+  "/products/product5.jpeg"
 
 const values = [
   {
-    icon: GemIcon,
-    title: "Quality first",
+    icon: FlameIcon,
+    title: "Laser precision",
     description:
-      "Every product is hand-picked and tested by our team before it earns a place on the shelf.",
+      "Every piece is cut with a precision fibre laser from 2mm steel — clean lines, crisp details, no compromises.",
   },
   {
-    icon: LeafIcon,
-    title: "Responsible sourcing",
+    icon: RulerIcon,
+    title: "Made to your size",
     description:
-      "We work with makers who share our values — sustainable materials and ethical production.",
+      "Every design can be resized to fit your wall. We cut exactly what you need, exactly how you need it.",
   },
   {
     icon: HeartHandshakeIcon,
-    title: "Customers first",
+    title: "Custom first",
     description:
-      "Easy returns, fast shipping and real humans on support. Your happiness is the whole point.",
+      "Car, bike, logo, name or date — if you can send it, we can cut it. Backlit LED versions available too.",
   },
   {
     icon: SparklesIcon,
-    title: "Fair pricing",
+    title: "Premium finish",
     description:
-      "No inflated markups. We price things honestly so great design stays within reach.",
+      "A durable black powder coat on every piece, plus a 3D floating shadow effect for real depth on the wall.",
   },
 ]
 
 const stats = [
-  { value: "20k+", label: "Happy customers" },
+  { value: "20k+", label: "Pieces shipped" },
   { value: "4.8/5", label: "Average rating" },
   { value: "40+", label: "Countries served" },
-  { value: "300+", label: "Curated products" },
+  { value: "300+", label: "Custom designs made" },
 ]
 
 export default function AboutPage() {
@@ -60,7 +60,7 @@ export default function AboutPage() {
       <section className="relative flex min-h-[320px] items-center sm:min-h-[400px]">
         <Image
           src={HERO_IMAGE}
-          alt="The Flex Aura team collaborating"
+          alt="Porsche 911 GT3 RS laser-cut metal wall art"
           fill
           priority
           sizes="100vw"
@@ -70,11 +70,12 @@ export default function AboutPage() {
         <Container className="relative text-white">
           <div className="max-w-xl">
             <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-              Thoughtfully curated. Honestly priced.
+              Cut in metal. Built to last.
             </h1>
             <p className="mt-4 text-sm text-white/85 sm:text-base">
-              Flex Aura started with a simple idea: shopping for the things you love
-              should feel good — from the moment you browse to the moment you unbox.
+              Flex Aura started in a workshop with a fibre laser and an idea:
+              your favourite car, bike or design, precision-cut from 2mm steel
+              and finished in premium black powder coat.
             </p>
           </div>
         </Container>
@@ -87,24 +88,24 @@ export default function AboutPage() {
             <SectionHeading
               align="left"
               eyebrow="Our story"
-              title="Built for the way you live"
+              title="From laser beam to showpiece"
             />
             <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-              We bring together a small, obsessive team of buyers, designers and
-              support specialists who believe everyday objects should be a little
-              extraordinary. We travel to find makers, test every product ourselves,
-              and refuse to stock anything we wouldn&apos;t put in our own homes.
+              We&apos;re a small, obsessive team of designers and laser
+              operators who believe walls deserve better than a poster. We
+              model every piece, refine every line, and cut it in 2mm steel
+              that feels as good as it looks.
             </p>
             <p className="text-sm leading-relaxed text-muted-foreground sm:text-base">
-              The result is a store that feels more like a recommendation from a
-              friend — dependable quality, honest prices and service that actually
-              answers.
+              The result is metal art that turns a garage, living room or shop
+              into a gallery — custom sizes, custom designs, and backlit LED
+              pieces that glow at night.
             </p>
           </div>
           <div className="relative aspect-[4/3] overflow-hidden rounded-[min(var(--radius-4xl),24px)]">
             <Image
-              src={TEAM_IMAGE}
-              alt="Members of the Flex Aura team working together"
+              src={WORKSHOP_IMAGE}
+              alt="Nissan GT-R R35 laser-cut metal art in a home"
               fill
               sizes="(max-width: 1024px) 100vw, 50vw"
               className="object-cover"
@@ -133,7 +134,7 @@ export default function AboutPage() {
           <SectionHeading
             eyebrow="What we stand for"
             title="Our values"
-            description="Four commitments that guide every decision we make."
+            description="Four commitments that guide every cut we make."
           />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {values.map((value) => (

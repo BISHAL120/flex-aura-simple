@@ -19,7 +19,7 @@ export function Newsletter({ compact = false }: { compact?: boolean }) {
     toast.add({
       type: "success",
       title: "Subscribed!",
-      description: "Thanks for joining the Flex Aura newsletter.",
+      description: "Thanks for joining the Flex Aura metal art newsletter.",
     })
     setEmail("")
     // Release the guard after the toast animation so rapid double-clicks
@@ -38,8 +38,8 @@ export function Newsletter({ compact = false }: { compact?: boolean }) {
             {compact ? "Join our newsletter" : "Stay in the loop"}
           </h2>
           <p className="max-w-md text-sm text-primary-foreground/80">
-            New arrivals, exclusive offers and early access to sales — straight to
-            your inbox. No spam, ever.
+            New cuts, custom designs and backlit LED drops — straight to your
+            inbox. No spam, ever.
           </p>
         </div>
         <form
