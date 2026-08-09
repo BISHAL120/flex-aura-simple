@@ -54,7 +54,8 @@ function readStoredCart(): StoredCartItem[] {
         item !== null &&
         typeof (item as StoredCartItem).productId === "string" &&
         typeof (item as StoredCartItem).variant === "string" &&
-        typeof (item as StoredCartItem).quantity === "number"
+        typeof (item as StoredCartItem).quantity === "number" &&
+        Number.isFinite((item as StoredCartItem).quantity)
     )
   } catch {
     return []
@@ -62,24 +63,35 @@ function readStoredCart(): StoredCartItem[] {
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [cartItems, setCartItems] = React.useState<CartItem[]>(() => {
-    // Rehydrate from localStorage on the client only. SSR renders an empty
-    // cart so server and client HTML always match.
-    const stored = readStoredCart()
-    if (stored.length === 0) return []
-    return stored.flatMap((item) => {
-      const product = productsById.get(item.productId)
-      if (!product) return []
-      return [{ product, variant: item.variant, quantity: item.quantity }]
-    })
-  })
+  // Start empty on both server and client so the hydration HTML always
+  // matches. The persisted cart is read once after mount.
+  const [cartItems, setCartItems] = React.useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = React.useState(false)
-  const hydratedRef = React.useRef(false)
 
-  // Persist on every change after the first client render.
+  // Rehydrate from localStorage once, after the first client render.
   React.useEffect(() => {
-    if (!hydratedRef.current) {
-      hydratedRef.current = true
+    const stored = readStoredCart()
+    if (stored.length > 0) {
+      const restored: CartItem[] = stored.flatMap((item) => {
+        const product = productsById.get(item.productId)
+        // Reject stale variants that no longer exist on the product, and clamp
+        // any tampered quantity to the valid range.
+        if (!product || !product.variants.includes(item.variant)) return []
+        const quantity = Math.min(MAX_QUANTITY, Math.max(1, Math.floor(item.quantity)))
+        return [{ product, variant: item.variant, quantity }]
+      })
+      if (restored.length > 0) {
+        queueMicrotask(() => setCartItems(restored))
+      }
+    }
+  }, [])
+
+  // Persist whenever the cart changes (including after rehydration, which is
+  // idempotent) once hydration has completed.
+  const hasHydratedRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!hasHydratedRef.current) {
+      hasHydratedRef.current = true
       return
     }
     try {
@@ -97,10 +109,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const openCart = React.useCallback(() => setCartOpen(true), [])
   const closeCart = React.useCallback(() => setCartOpen(false), [])
 
+  // Tracks whether the cart is currently empty so rapid clicks always agree on
+  // whether to auto-open the sheet (avoids the batched-updater race).
+  const isEmptyRef = React.useRef(true)
+  React.useEffect(() => {
+    isEmptyRef.current = cartItems.length === 0
+  }, [cartItems])
+
   const addToCart = React.useCallback((product: Product, variant: string) => {
-    let wasEmpty = false
+    const wasEmpty = isEmptyRef.current
     setCartItems((items) => {
-      wasEmpty = items.length === 0
       const key = cartItemKey(product.id, variant)
       const existing = items.find((item) => cartItemKey(item.product.id, item.variant) === key)
       if (existing) {

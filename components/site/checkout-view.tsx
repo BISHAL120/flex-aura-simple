@@ -25,15 +25,30 @@ import { cn } from "@/lib/utils"
 
 type Step = "details" | "payment"
 
-const CARD_NUMBER_PATTERN = "[0-9]{13,19}"
+const CARD_NUMBER_PATTERN = "[0-9 ]{13,23}"
 const EXPIRY_PATTERN = "(0[1-9]|1[0-2])/[0-9]{2}"
 const CVC_PATTERN = "[0-9]{3,4}"
+
+function isValidCardNumber(value: string) {
+  const digits = value.replace(/[^0-9]/g, "")
+  return digits.length >= 13 && digits.length <= 19
+}
 
 export function CheckoutView() {
   const router = useRouter()
   const { cartItems, subtotal, clearCart } = useStore()
   const [step, setStep] = React.useState<Step>("details")
   const [pending, setPending] = React.useState(false)
+  const paymentFormRef = React.useRef<HTMLFormElement>(null)
+  const timerRef = React.useRef<number | null>(null)
+
+  React.useEffect(() => {
+    return () => {
+      // Don't let a pending payment redirect fire after the component unmounts
+      // (e.g. the user navigates away mid-"processing").
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    }
+  }, [])
 
   const shipping = getShipping(subtotal)
   const total = subtotal + shipping
@@ -41,24 +56,37 @@ export function CheckoutView() {
   function handleDetailsSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setStep("payment")
+    // Move focus into the payment form so keyboard/screen-reader users aren't
+    // left on the now-hidden details button.
+    paymentFormRef.current
+      ?.querySelector<HTMLElement>("input")
+      ?.focus()
   }
 
   function handlePaymentSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (pending) return
     if (cartItems.length === 0) return
+
+    const form = event.currentTarget
+    const cardNumber = new FormData(form).get("cardNumber")
+    if (typeof cardNumber === "string" && !isValidCardNumber(cardNumber)) {
+      form.querySelector<HTMLElement>('input[name="cardNumber"]')?.focus()
+      return
+    }
+
     setPending(true)
 
     // Placeholder for a real order API. A production build would POST the
     // cart to a route handler/server action that re-validates prices.
-    const orderNumber = `FA-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
+    const orderNumber = `FA-${(crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)).slice(0, 8).toUpperCase()}`
     writeStoredOrder({ orderNumber, total })
 
-    // Clear the cart immediately so back-navigation can't leave it half-empty,
-    // then navigate once the placeholder "processing" delay finishes.
-    clearCart()
-
-    window.setTimeout(() => {
+    // Keep the cart intact while "processing", then clear it and navigate.
+    // Clearing before the redirect would swap the checkout page to the empty
+    // state mid-flight and strand the user.
+    timerRef.current = window.setTimeout(() => {
+      clearCart()
       setPending(false)
       router.push("/order-confirmation")
     }, 900)
@@ -182,7 +210,9 @@ export function CheckoutView() {
 
           {/* Step 2: payment */}
           <form
+            ref={paymentFormRef}
             onSubmit={handlePaymentSubmit}
+            aria-busy={pending}
             className={cn("flex flex-col gap-4 rounded-lg border bg-card p-5", step !== "payment" && "hidden")}
           >
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

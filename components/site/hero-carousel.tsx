@@ -24,6 +24,16 @@ export function HeroCarousel() {
   // Bumped on manual interactions so the autoplay timer restarts and never
   // double-scrolls right after a user click.
   const [interactionKey, setInteractionKey] = React.useState(0)
+  // Respect prefers-reduced-motion: never auto-advance for those users.
+  const [reduceMotion, setReduceMotion] = React.useState(false)
+
+  React.useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
+    queueMicrotask(() => setReduceMotion(mq.matches))
+    const onChange = (event: MediaQueryListEvent) => setReduceMotion(event.matches)
+    mq.addEventListener("change", onChange)
+    return () => mq.removeEventListener("change", onChange)
+  }, [])
 
   React.useEffect(() => {
     if (!api) return
@@ -37,12 +47,12 @@ export function HeroCarousel() {
   }, [api])
 
   React.useEffect(() => {
-    if (!api || paused) return
+    if (!api || paused || reduceMotion) return
     const timer = window.setInterval(() => {
       api.scrollNext()
     }, AUTOPLAY_MS)
     return () => window.clearInterval(timer)
-  }, [api, paused, interactionKey])
+  }, [api, paused, interactionKey, reduceMotion])
 
   function handleManualInteraction(action: () => void) {
     setInteractionKey((key) => key + 1)
@@ -60,7 +70,8 @@ export function HeroCarousel() {
       <Carousel
         setApi={setApi}
         opts={{ loop: true }}
-        className="overflow-hidden"
+        aria-label="Featured promotions"
+        className="mx-auto w-full max-w-[1500px] overflow-hidden"
       >
         <CarouselContent className="-ml-0">
           {heroSlides.map((slide, slideIndex) => (
@@ -76,7 +87,7 @@ export function HeroCarousel() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/10" />
                 <div className="absolute inset-0 flex items-center">
-                  <div className="mx-auto w-full max-w-[1500px] px-4 sm:px-6 lg:px-8">
+                  <div className="w-full px-4 sm:px-6 lg:px-8">
                     <div className="max-w-xl text-white">
                       {slideIndex === 0 ? (
                         <h1 className="font-heading text-3xl font-semibold tracking-tight text-balance sm:text-4xl lg:text-5xl">
@@ -132,10 +143,10 @@ export function HeroCarousel() {
               key={slide.id}
               type="button"
               aria-label={`Go to slide ${index + 1}`}
-              aria-current={current === index}
+              aria-current={current === index ? "true" : undefined}
               onClick={() => handleManualInteraction(() => api?.scrollTo(index))}
               className={cn(
-                "h-2 rounded-full transition-all focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none",
+                "h-2 rounded-full p-2 -m-2 transition-all focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none bg-clip-content",
                 current === index ? "w-6 bg-white" : "w-2 bg-white/50 hover:bg-white/80"
               )}
             />

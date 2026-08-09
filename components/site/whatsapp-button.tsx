@@ -1,16 +1,13 @@
 import Link from "next/link"
 
-const WHATSAPP_NUMBER = "15551234567" // country code + number, digits only
-const WHATSAPP_MESSAGE = "Hi Flex Aura! I have a question about your products."
+const WHATSAPP_NUMBER = "+8801623939834" // country code + number, digits only
+const WHATSAPP_MESSAGE = "Hi Flex Aura! I want to order a customized product."
+const WHATSAPP_HREF = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`
 
 export function WhatsAppButton() {
-  const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-    WHATSAPP_MESSAGE
-  )}`
-
   return (
     <Link
-      href={href}
+      href={WHATSAPP_HREF}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"

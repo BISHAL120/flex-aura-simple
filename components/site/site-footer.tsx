@@ -2,9 +2,9 @@ import Link from "next/link"
 import { MailIcon, MapPinIcon, PhoneIcon } from "lucide-react"
 
 import { Container } from "@/components/site/container"
-import { Newsletter } from "@/components/site/newsletter"
 
 const shopLinks = [
+  { label: "Shop All", href: "/shop" },
   { label: "Summer Sale", href: "/promotions/summer-sale" },
   { label: "Clearance", href: "/promotions/clearance" },
   { label: "New Arrivals", href: "/#new-arrivals" },
@@ -53,10 +53,6 @@ export function SiteFooter() {
           <FooterColumn title="Shop" links={shopLinks} />
           <FooterColumn title="Company" links={companyLinks} />
           <FooterColumn title="Support" links={supportLinks} />
-        </div>
-
-        <div className="mt-12 border-t pt-8">
-          <Newsletter compact />
         </div>
 
         <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t pt-6 text-xs text-muted-foreground sm:flex-row">

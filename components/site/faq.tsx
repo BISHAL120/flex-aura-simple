@@ -16,35 +16,38 @@ const FAQ_IMAGE =
 export function FAQ() {
   return (
     <section id="faq" aria-labelledby="faq-heading" className="scroll-mt-20">
-      <Container className="grid items-start gap-10 lg:grid-cols-2">
-        <div className="flex flex-col gap-6">
-          <SectionHeading
-            align="left"
-            eyebrow="FAQ"
-            title="Frequently asked questions"
-            description="Everything you need to know about shopping with Flex Aura. Can't find an answer? Reach out on our contact page."
-          />
-          <div className="relative aspect-[4/3] overflow-hidden rounded-lg lg:aspect-[16/10]">
+      <Container className="flex flex-col gap-10">
+        {/* Heading on top, spanning the full width */}
+        <SectionHeading
+          align="left"
+          eyebrow="FAQ"
+          title="Frequently asked questions"
+          description="Everything you need to know about shopping with Flex Aura. Can't find an answer? Reach out on our contact page."
+        />
+
+        {/* Image left, FAQs right */}
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
+          <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-lg lg:aspect-auto lg:w-[42%] lg:min-h-[320px]">
             <Image
               src={FAQ_IMAGE}
               alt="Flex Aura support team"
               fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
+              sizes="(max-width: 1024px) 100vw, 42vw"
               className="object-cover"
             />
           </div>
-        </div>
 
-        <Accordion className="rounded-lg">
-          {faqs.map((faq) => (
-            <AccordionItem key={faq.question} value={faq.question}>
-              <AccordionTrigger>{faq.question}</AccordionTrigger>
-              <AccordionContent>
-                <p className="text-muted-foreground">{faq.answer}</p>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+          <Accordion defaultValue={[faqs[0]?.question].filter(Boolean)} className="w-full rounded-lg lg:flex-1">
+            {faqs.map((faq) => (
+              <AccordionItem key={faq.question} value={faq.question}>
+                <AccordionTrigger>{faq.question}</AccordionTrigger>
+                <AccordionContent>
+                  <p className="text-muted-foreground">{faq.answer}</p>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
       </Container>
     </section>
   )

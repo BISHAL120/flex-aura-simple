@@ -24,21 +24,22 @@ export function ProductCard({ product, priority = false }: { product: Product; p
   const defaultVariant = product.variants[0] ?? ""
   const [variant, setVariant] = React.useState(defaultVariant)
   const [imageIndex, setImageIndex] = React.useState(0)
-  // Track cursor position and the position of the last committed swap so a
+  // Track pointer position and the position of the last committed swap so a
   // single continuous stroke crosses the threshold at most once per 48px.
   const lastXRef = React.useRef(0)
   const lastSwapXRef = React.useRef(0)
   const hasEnteredRef = React.useRef(false)
 
-  function handleMouseEnter(event: React.MouseEvent<HTMLDivElement>) {
+  function handlePointerEnter(event: React.PointerEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect()
     lastXRef.current = event.clientX - rect.left
     lastSwapXRef.current = lastXRef.current
     hasEnteredRef.current = true
   }
 
-  function handleMouseMove(event: React.MouseEvent<HTMLDivElement>) {
-    if (!hasEnteredRef.current) return
+  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    // Touch doesn't produce hover movement — the dot buttons cover that.
+    if (event.pointerType !== "mouse" || !hasEnteredRef.current) return
     const rect = event.currentTarget.getBoundingClientRect()
     const x = event.clientX - rect.left
     const delta = x - lastXRef.current
@@ -49,17 +50,28 @@ export function ProductCard({ product, priority = false }: { product: Product; p
 
     const direction = delta > 0 ? 1 : -1
     const steps = Math.max(1, Math.round(distance / SWAP_THRESHOLD_PX))
-    lastSwapXRef.current += steps * SWAP_THRESHOLD_PX * direction
+    // Anchor to the real cursor position instead of stepping by fixed
+    // multiples so long strokes keep advancing and don't drift.
+    lastSwapXRef.current = x
     setImageIndex((index) => (index + steps * direction + product.images.length) % product.images.length)
   }
 
-  function handleMouseLeave() {
+  function handlePointerLeave() {
     if (!hasEnteredRef.current) return
     hasEnteredRef.current = false
     lastXRef.current = 0
     lastSwapXRef.current = 0
     setImageIndex(0)
   }
+
+  // If the card is ever reused for a different product (keyed lists guarantee
+  // remounts today), don't keep a stale variant or image selected.
+  React.useEffect(() => {
+    queueMicrotask(() => {
+      setVariant(product.variants[0] ?? "")
+      setImageIndex(0)
+    })
+  }, [product])
 
   const discount =
     product.compareAtPrice != null && product.compareAtPrice > product.price
@@ -70,9 +82,9 @@ export function ProductCard({ product, priority = false }: { product: Product; p
     <Card className="flex h-full flex-col gap-0 overflow-hidden py-0">
       <div
         className="relative aspect-square overflow-hidden"
-        onMouseEnter={handleMouseEnter}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
+        onPointerEnter={handlePointerEnter}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
       >
         {product.images.map((src, index) => (
           <Image
@@ -82,9 +94,10 @@ export function ProductCard({ product, priority = false }: { product: Product; p
             fill
             priority={priority && index === 0}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            aria-hidden={index !== imageIndex}
             className={cn(
               "object-cover transition-opacity duration-300",
-              index === imageIndex ? "opacity-100" : "opacity-0"
+              index === imageIndex ? "opacity-100" : "pointer-events-none opacity-0"
             )}
           />
         ))}
@@ -96,18 +109,50 @@ export function ProductCard({ product, priority = false }: { product: Product; p
             -{discount}%
           </Badge>
         ) : null}
+
+        {/* Image gallery indicator — tappable on touch devices */}
+        {product.images.length > 1 ? (
+          <div className="absolute inset-x-0 bottom-2.5 flex items-center justify-center gap-1.5">
+            {product.images.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                aria-label={`Show image ${index + 1} of ${product.images.length}`}
+                aria-current={index === imageIndex}
+                onClick={() => setImageIndex(index)}
+                className={cn(
+                  "h-1.5 rounded-full p-0 transition-all duration-300",
+                  index === imageIndex
+                    ? "w-4 bg-white"
+                    : "w-1.5 bg-white/50 hover:bg-white/80"
+                )}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <CardHeader className="gap-0 px-4 pt-3 pb-0">
         <CardTitle className="line-clamp-2 min-h-10 text-sm leading-5 font-medium">
           {product.name}
         </CardTitle>
-        <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1 text-foreground">
-            <StarIcon className="size-3.5 fill-amber-400 text-amber-400" />
-            {product.rating.toFixed(1)}
+        {/* Rating (left) + price (right) on one line */}
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1 text-foreground">
+              <StarIcon className="size-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
+              {product.rating.toFixed(1)}
+            </span>
+            <span>({product.reviewCount})</span>
           </span>
-          <span>({product.reviewCount})</span>
+          <span className="flex items-baseline gap-1.5">
+            <span className="text-base font-semibold">{formatPrice(product.price)}</span>
+            {product.compareAtPrice != null ? (
+              <span className="text-xs text-muted-foreground line-through">
+                {formatPrice(product.compareAtPrice)}
+              </span>
+            ) : null}
+          </span>
         </div>
       </CardHeader>
 
@@ -132,15 +177,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         </div>
       </CardContent>
 
-      <CardFooter className="mt-auto flex flex-col items-stretch gap-2.5 px-4 pt-3 pb-4">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-base font-semibold">{formatPrice(product.price)}</span>
-          {product.compareAtPrice != null ? (
-            <span className="text-xs text-muted-foreground line-through">
-              {formatPrice(product.compareAtPrice)}
-            </span>
-          ) : null}
-        </div>
+      <CardFooter className="mt-auto px-4 pt-3 pb-4">
         <Button
           size="lg"
           className="w-full h-11"
