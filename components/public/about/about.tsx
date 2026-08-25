@@ -3,15 +3,8 @@ import Image from "next/image"
 import { FlameIcon, RulerIcon, HeartHandshakeIcon, SparklesIcon } from "lucide-react"
 
 import { Container } from "@/components/site/container"
-import { PageShell } from "@/components/site/page-shell"
 import { SectionHeading } from "@/components/site/section-heading"
-import { Newsletter } from "@/components/site/newsletter"
-
-export const metadata: Metadata = {
-  title: "About Us — Flex Aura",
-  description:
-    "Flex Aura laser-cuts 2mm metal wall art of your favourite cars, bikes and custom designs — made to order, in your size.",
-}
+import { Newsletter } from "@/components/public/contact/newsletter"
 
 const HERO_IMAGE =
   "/products/product1.webp"
@@ -55,9 +48,9 @@ const stats = [
 
 export default function AboutPage() {
   return (
-    <PageShell>
+    <div>
       {/* Hero */}
-      <section className="relative flex min-h-[320px] items-center sm:min-h-[400px]">
+      <section className="relative flex min-h-80 items-center sm:min-h-100">
         <Image
           src={HERO_IMAGE}
           alt="Porsche 911 GT3 RS laser-cut metal wall art"
@@ -66,7 +59,7 @@ export default function AboutPage() {
           sizes="100vw"
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/10" />
+        <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/40 to-black/10" />
         <Container className="relative text-white">
           <div className="max-w-xl">
             <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -102,7 +95,7 @@ export default function AboutPage() {
               pieces that glow at night.
             </p>
           </div>
-          <div className="relative aspect-[4/3] overflow-hidden rounded-[min(var(--radius-4xl),24px)]">
+          <div className="relative aspect-4/3 overflow-hidden rounded-[min(var(--radius-4xl),24px)]">
             <Image
               src={WORKSHOP_IMAGE}
               alt="Nissan GT-R R35 laser-cut metal art in a home"
@@ -156,6 +149,6 @@ export default function AboutPage() {
       <section className="pb-14 sm:pb-20">
         <Newsletter />
       </section>
-    </PageShell>
+    </div>
   )
 }

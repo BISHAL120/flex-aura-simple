@@ -1,17 +1,17 @@
+import CartPage from "@/components/public/cart-page/cart-view"
 import type { Metadata } from "next"
-
-import { PageShell } from "@/components/site/page-shell"
-import { CartView } from "@/components/site/cart-view"
 
 export const metadata: Metadata = {
   title: "Your Cart — Flex Aura",
   description: "Review the metal art pieces in your Flex Aura cart before checking out.",
 }
 
-export default function CartPage() {
+const page = () => {
   return (
-    <PageShell>
-      <CartView />
-    </PageShell>
+    <div>
+      <CartPage />
+    </div>
   )
 }
+
+export default page

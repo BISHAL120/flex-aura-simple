@@ -8,6 +8,8 @@ import { Container } from "@/components/site/container"
 import { Button } from "@/components/ui/button"
 import { clearStoredOrder, readStoredOrder } from "@/lib/order"
 
+/* TODO: Use Zustand and remove the localstorage */
+
 function subscribeToOrder(callback: () => void) {
   window.addEventListener("storage", callback)
   return () => window.removeEventListener("storage", callback)

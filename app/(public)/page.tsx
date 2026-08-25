@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { ArrowRightIcon } from "lucide-react"
 
 import { Container } from "@/components/site/container"
-import { PageShell } from "@/components/site/page-shell"
 import { HeroCarousel } from "@/components/site/hero-carousel"
 import { SectionHeading } from "@/components/site/section-heading"
 import { ProductGrid } from "@/components/site/product-grid"
@@ -11,7 +10,7 @@ import { FeatureCards } from "@/components/site/feature-cards"
 import { Perks } from "@/components/site/perks"
 import { Reviews } from "@/components/site/reviews"
 import { FAQ } from "@/components/site/faq"
-import { Newsletter } from "@/components/site/newsletter"
+import { Newsletter } from "@/components/public/contact/newsletter"
 import { Button } from "@/components/ui/button"
 import { getBestSellers, getNewArrivals } from "@/lib/data"
 
@@ -26,7 +25,7 @@ export default function Page() {
   const newArrivals = getNewArrivals()
 
   return (
-    <PageShell>
+    <div>
       <HeroCarousel />
 
       <section id="best-sellers" aria-labelledby="best-sellers-heading" className="scroll-mt-20 py-14 sm:py-20">
@@ -67,7 +66,6 @@ export default function Page() {
             description="Names, logos, dates and designs — cut in metal and lit with warm LEDs."
           />
           <Button
-            variant="outline"
             render={<Link href="/shop" />}
             nativeButton={false}
             className="hidden shrink-0 sm:inline-flex"
@@ -116,6 +114,6 @@ export default function Page() {
       <section className="pb-14 sm:pb-20">
         <Newsletter compact />
       </section>
-    </PageShell>
+    </div>
   )
 }

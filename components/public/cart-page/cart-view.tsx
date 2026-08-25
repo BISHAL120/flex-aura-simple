@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { formatPrice } from "@/lib/data"
 import { FREE_SHIPPING_THRESHOLD, getShipping } from "@/lib/cart"
 
-export function CartView() {
+const CartPage = () => {
   const { cartItems, subtotal, updateQuantity, removeFromCart } = useStore()
 
   const shipping = getShipping(subtotal)
@@ -155,3 +155,5 @@ export function CartView() {
     </Container>
   )
 }
+
+export default CartPage

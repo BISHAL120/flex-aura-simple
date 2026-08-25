@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import * as React from "react"
 
-import { PageShell } from "@/components/site/page-shell"
 import { ShopView } from "@/components/site/shop-view"
 
 export const metadata: Metadata = {
@@ -11,11 +10,11 @@ export const metadata: Metadata = {
 }
 
 export default function ShopPage() {
+  {/* TODO: Add Skeloton page fpr the shop page */ }
   return (
-    <PageShell>
-      <React.Suspense fallback={null}>
-        <ShopView />
-      </React.Suspense>
-    </PageShell>
+  < React.Suspense fallback={null} >
+    <ShopView />
+  </React.Suspense >
+
   )
 }

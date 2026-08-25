@@ -1,9 +1,5 @@
 "use client"
 
-import * as React from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import Link from "next/link"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -11,6 +7,10 @@ import {
   LockIcon,
   ShoppingBagIcon,
 } from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import * as React from "react"
 
 import { Container } from "@/components/site/container"
 import { SectionHeading } from "@/components/site/section-heading"
@@ -18,8 +18,8 @@ import { useStore } from "@/components/store-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { formatPrice } from "@/lib/data"
 import { getShipping } from "@/lib/cart"
+import { formatPrice } from "@/lib/data"
 import { writeStoredOrder } from "@/lib/order"
 import { cn } from "@/lib/utils"
 
@@ -34,7 +34,7 @@ function isValidCardNumber(value: string) {
   return digits.length >= 13 && digits.length <= 19
 }
 
-export function CheckoutView() {
+const CheckoutPage = () => {
   const router = useRouter()
   const { cartItems, subtotal, clearCart } = useStore()
   const [step, setStep] = React.useState<Step>("details")
@@ -335,6 +335,8 @@ export function CheckoutView() {
     </Container>
   )
 }
+
+export default CheckoutPage
 
 function StepChip({ label, active, done }: { label: string; active: boolean; done: boolean }) {
   return (

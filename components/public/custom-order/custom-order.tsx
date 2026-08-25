@@ -2,15 +2,8 @@ import type { Metadata } from "next"
 import { PaletteIcon, RulerIcon, LightbulbIcon, TruckIcon } from "lucide-react"
 
 import { Container } from "@/components/site/container"
-import { PageShell } from "@/components/site/page-shell"
 import { SectionHeading } from "@/components/site/section-heading"
-import { CustomOrderForm } from "@/components/site/custom-order-form"
-
-export const metadata: Metadata = {
-  title: "Custom Order Request — Flex Aura",
-  description:
-    "Request a custom laser-cut metal art piece — your car, bike, logo, name or design, made to your size with or without backlit LED light.",
-}
+import { CustomOrderForm } from "@/components/public/custom-order/custom-order-form"
 
 const steps = [
   {
@@ -37,7 +30,7 @@ const steps = [
 
 export default function CustomOrderPage() {
   return (
-    <PageShell>
+    <div>
       <section className="py-14 sm:py-20">
         <Container className="flex flex-col gap-10">
           <SectionHeading
@@ -87,6 +80,6 @@ export default function CustomOrderPage() {
           </div>
         </Container>
       </section>
-    </PageShell>
+    </div>
   )
 }

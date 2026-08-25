@@ -3,10 +3,9 @@ import Image from "next/image"
 import { notFound } from "next/navigation"
 
 import { Container } from "@/components/site/container"
-import { PageShell } from "@/components/site/page-shell"
 import { ProductGrid } from "@/components/site/product-grid"
 import { SectionHeading } from "@/components/site/section-heading"
-import { Newsletter } from "@/components/site/newsletter"
+import { Newsletter } from "@/components/public/contact/newsletter"
 import { Badge } from "@/components/ui/badge"
 import { campaigns, getCampaignBySlug, getProductsByIds } from "@/lib/data"
 
@@ -43,9 +42,9 @@ export default async function CampaignPage({
   const campaignProducts = getProductsByIds(campaign.productIds)
 
   return (
-    <PageShell>
+    <div>
       {/* Campaign hero banner */}
-        <section className="relative flex min-h-[320px] items-center sm:min-h-[400px]">
+        <section className="relative flex min-h-80 items-center sm:min-h-100">
           <Image
             src={campaign.image}
             alt={campaign.title}
@@ -54,7 +53,7 @@ export default async function CampaignPage({
             sizes="100vw"
             className="object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/10" />
+          <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/40 to-black/10" />
           <Container className="relative text-white">
             <div className="max-w-xl">
               <Badge className="mb-4 bg-white text-black">{campaign.discount}</Badge>
@@ -83,6 +82,6 @@ export default async function CampaignPage({
         <section className="pb-14 sm:pb-20">
           <Newsletter />
         </section>
-    </PageShell>
+    </div>
   )
 }
