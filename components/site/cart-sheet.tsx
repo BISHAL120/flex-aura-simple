@@ -113,7 +113,7 @@ export function CartSheet() {
                         </button>
                       </div>
                       <span className="text-sm font-semibold">
-                        {formatPrice(item.product.price * item.quantity)}
+                        {formatPrice(item.price * item.quantity)}
                       </span>
                     </div>
                   </div>

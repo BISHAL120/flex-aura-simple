@@ -3,13 +3,15 @@
 import * as React from "react"
 
 import { toast } from "@/components/ui/toast"
-import { formatPrice, products, type Product } from "@/lib/data"
+import { formatPrice, getVariantPrice, products, type Product } from "@/lib/data"
 
 const productsById = new Map(products.map((p) => [p.id, p]))
 
 export type CartItem = {
   product: Product
   variant: string
+  /** Unit price for the selected variant, resolved at add time. */
+  price: number
   quantity: number
 }
 
@@ -76,9 +78,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const product = productsById.get(item.productId)
         // Reject stale variants that no longer exist on the product, and clamp
         // any tampered quantity to the valid range.
-        if (!product || !product.variants.includes(item.variant)) return []
+        if (!product || !product.variants.some((v) => v.name === item.variant)) return []
         const quantity = Math.min(MAX_QUANTITY, Math.max(1, Math.floor(item.quantity)))
-        return [{ product, variant: item.variant, quantity }]
+        return [{ product, variant: item.variant, price: getVariantPrice(product, item.variant), quantity }]
       })
       if (restored.length > 0) {
         queueMicrotask(() => setCartItems(restored))
@@ -128,7 +130,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             : item
         )
       }
-      return [...items, { product, variant, quantity: 1 }]
+      return [...items, { product, variant, price: getVariantPrice(product, variant), quantity: 1 }]
     })
     // Auto-open the sheet only when the cart was empty, so it doesn't fight
     // the user while they keep adding items.
@@ -136,7 +138,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toast.add({
       type: "success",
       title: "Added to cart",
-      description: `${product.name} (${variant}) — ${formatPrice(product.price)}`,
+      description: `${product.name} (${variant}) — ${formatPrice(getVariantPrice(product, variant))}`,
     })
   }, [])
 
@@ -173,7 +175,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   )
 
   const subtotal = React.useMemo(
-    () => cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+    () => cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [cartItems]
   )
 

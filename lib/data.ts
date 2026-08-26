@@ -1,14 +1,22 @@
+export type ProductVariant = {
+  /** Size / option label, e.g. `30" × 18.5"`. */
+  name: string
+  price: number
+  compareAtPrice?: number
+}
+
 export type Product = {
   id: string
   slug: string
   name: string
   description: string
+  /** Base price, used for cards and sorting. Variants may override it. */
   price: number
   compareAtPrice?: number
   image: string
   images: string[]
   badge?: string
-  variants: string[]
+  variants: ProductVariant[]
   rating: number
   reviewCount: number
   tags: string[]
@@ -50,6 +58,48 @@ export type FAQ = {
 /** Local product images live in /public/products. */
 const productImg = (file: string) => `/products/${file}`
 
+/**
+ * Builds the gallery images for a product: the main shot plus three extra
+ * views (`productN-1`, `productN-2`, `productN-3`) that live next to the base
+ * file in /public/products. Each product has its own copy so every gallery
+ * shows a main image plus square thumbnails.
+ */
+function productImages(baseFile: string): string[] {
+  const base = baseFile.split(".")[0]
+  const ext = baseFile.split(".").slice(1).join(".")
+  return [
+    productImg(baseFile),
+    productImg(`${base}-1.${ext}`),
+    productImg(`${base}-2.${ext}`),
+    productImg(`${base}-3.${ext}`),
+  ]
+}
+
+/** Shorthand for a single-size product variant that matches the base price. */
+const variant = (name: string, price: number, compareAtPrice?: number): ProductVariant => ({
+  name,
+  price,
+  compareAtPrice,
+})
+
+/**
+ * Builds three size variants (Small / Medium / Large) for a product from its
+ * base price. The medium size keeps the base price; small is ~15% cheaper and
+ * large is ~20% more.
+ */
+function sizeVariants(
+  basePrice: number,
+  sizes: { small: string; medium: string; large: string },
+  compareAtPrice?: number
+): ProductVariant[] {
+  const round = (n: number) => Math.round(n)
+  return [
+    variant(sizes.small, round(basePrice * 0.85), compareAtPrice != null ? round(compareAtPrice * 0.85) : undefined),
+    variant(sizes.medium, basePrice, compareAtPrice),
+    variant(sizes.large, round(basePrice * 1.2), compareAtPrice != null ? round(compareAtPrice * 1.2) : undefined),
+  ]
+}
+
 export const products: Product[] = [
   {
     id: "p1",
@@ -60,9 +110,9 @@ export const products: Product[] = [
     price: 89,
     compareAtPrice: 109,
     image: productImg("product1.webp"),
-    images: [productImg("product1.webp")],
+    images: productImages("product1.webp"),
     badge: "Best Seller",
-    variants: ["30\" × 18.5\""],
+    variants: sizeVariants(89, {"small":"24\" × 15\"","medium":"30\" × 18.5\"","large":"36\" × 22\""}, 109),
     rating: 4.9,
     reviewCount: 214,
     tags: ["best-seller", "porsche", "car"],
@@ -75,9 +125,9 @@ export const products: Product[] = [
       "Sleek side profile of the GT3 RS with its signature aero lines, cut in flowing line-art from 2mm powder-coated metal.",
     price: 99,
     image: productImg("product2.webp"),
-    images: [productImg("product2.webp")],
+    images: productImages("product2.webp"),
     badge: "New",
-    variants: ["36\" × 10.5\""],
+    variants: sizeVariants(99, {"small":"29\" × 8.5\"","medium":"36\" × 10.5\"","large":"43\" × 12.5\""}),
     rating: 4.8,
     reviewCount: 178,
     tags: ["new-arrival", "porsche", "car"],
@@ -91,9 +141,9 @@ export const products: Product[] = [
     price: 95,
     compareAtPrice: 120,
     image: productImg("product3.webp"),
-    images: [productImg("product3.webp")],
+    images: productImages("product3.webp"),
     badge: "-21%",
-    variants: ["36\" × 13.5\""],
+    variants: sizeVariants(95, {"small":"29\" × 11\"","medium":"36\" × 13.5\"","large":"43\" × 16\""}, 120),
     rating: 4.7,
     reviewCount: 342,
     tags: ["best-seller", "chevrolet", "car"],
@@ -106,9 +156,9 @@ export const products: Product[] = [
       "The aggressive face of the M3 G80, with its huge kidney grilles and sharp headlights, rendered in black metal line-art.",
     price: 92,
     image: productImg("product4.webp"),
-    images: [productImg("product4.webp")],
+    images: productImages("product4.webp"),
     badge: "New",
-    variants: ["30\" × 20.5\""],
+    variants: sizeVariants(92, {"small":"24\" × 16.5\"","medium":"30\" × 20.5\"","large":"36\" × 24.5\""}),
     rating: 4.6,
     reviewCount: 96,
     tags: ["new-arrival", "bmw", "car"],
@@ -122,9 +172,9 @@ export const products: Product[] = [
     price: 85,
     compareAtPrice: 105,
     image: productImg("product5.jpeg"),
-    images: [productImg("product5.jpeg")],
+    images: productImages("product5.jpeg"),
     badge: "Best Seller",
-    variants: ["30\" × 12.5\""],
+    variants: sizeVariants(85, {"small":"24\" × 10\"","medium":"30\" × 12.5\"","large":"36\" × 15\""}, 105),
     rating: 4.8,
     reviewCount: 421,
     tags: ["best-seller", "nissan", "car"],
@@ -137,8 +187,8 @@ export const products: Product[] = [
       "A refined side profile of the Audi A3 Sportback, balancing the brand's precise, understated design language.",
     price: 88,
     image: productImg("product6.jpeg"),
-    images: [productImg("product6.jpeg")],
-    variants: ["30\" × 16.5\""],
+    images: productImages("product6.jpeg"),
+    variants: sizeVariants(88, {"small":"24\" × 13\"","medium":"30\" × 16.5\"","large":"36\" × 20\""}),
     rating: 4.7,
     reviewCount: 158,
     tags: ["audi", "car"],
@@ -152,9 +202,9 @@ export const products: Product[] = [
     price: 97,
     compareAtPrice: 119,
     image: productImg("product7.jpeg"),
-    images: [productImg("product7.jpeg")],
+    images: productImages("product7.jpeg"),
     badge: "-18%",
-    variants: ["30\" × 12.5\""],
+    variants: sizeVariants(97, {"small":"24\" × 10\"","medium":"30\" × 12.5\"","large":"36\" × 15\""}, 119),
     rating: 4.8,
     reviewCount: 87,
     tags: ["mercedes", "car"],
@@ -167,8 +217,8 @@ export const products: Product[] = [
       "Round tail-lights, diffuser and that famous wing. The GT-R rear view is a legend in itself — now on your wall.",
     price: 84,
     image: productImg("product8.jpeg"),
-    images: [productImg("product8.jpeg")],
-    variants: ["30\" × 12.5\""],
+    images: productImages("product8.jpeg"),
+    variants: sizeVariants(84, {"small":"24\" × 10\"","medium":"30\" × 12.5\"","large":"36\" × 15\""}),
     rating: 4.5,
     reviewCount: 302,
     tags: ["nissan", "car"],
@@ -181,9 +231,9 @@ export const products: Product[] = [
       "Aviation meets metal. The Raptor's diamond wings and twin tails in a striking top-down line-art cutout.",
     price: 110,
     image: productImg("product9.jpeg"),
-    images: [productImg("product9.jpeg")],
+    images: productImages("product9.jpeg"),
     badge: "New",
-    variants: ["36\" × 16\""],
+    variants: sizeVariants(110, {"small":"29\" × 13\"","medium":"36\" × 16\"","large":"43\" × 19\""}),
     rating: 4.9,
     reviewCount: 121,
     tags: ["new-arrival", "aviation"],
@@ -196,8 +246,8 @@ export const products: Product[] = [
       "Low, wide and purposeful. The GT3 RS front end with its huge intakes and splitter, precision-cut in black metal.",
     price: 91,
     image: productImg("product10.jpeg"),
-    images: [productImg("product10.jpeg")],
-    variants: ["30\" × 12.5\""],
+    images: productImages("product10.jpeg"),
+    variants: sizeVariants(91, {"small":"24\" × 10\"","medium":"30\" × 12.5\"","large":"36\" × 15\""}),
     rating: 4.7,
     reviewCount: 64,
     tags: ["porsche", "car"],
@@ -210,9 +260,9 @@ export const products: Product[] = [
       "Classic muscle. The iconic 1970 Charger with its aggressive stance and signature grille in bold metal silhouette.",
     price: 105,
     image: productImg("product11.jpeg"),
-    images: [productImg("product11.jpeg")],
+    images: productImages("product11.jpeg"),
     badge: "Classic",
-    variants: ["36\" × 14\""],
+    variants: sizeVariants(105, {"small":"29\" × 11\"","medium":"36\" × 14\"","large":"43\" × 17\""}),
     rating: 4.8,
     reviewCount: 143,
     tags: ["dodge", "muscle", "car"],
@@ -225,8 +275,8 @@ export const products: Product[] = [
       "A hypnotic geometric vortex that plays with depth and movement. Pure abstract metal art for modern spaces.",
     price: 75,
     image: productImg("product12.jpeg"),
-    images: [productImg("product12.jpeg")],
-    variants: ["24\" × 24\""],
+    images: productImages("product12.jpeg"),
+    variants: sizeVariants(75, {"small":"19\" × 19\"","medium":"24\" × 24\"","large":"29\" × 29\""}),
     rating: 4.6,
     reviewCount: 256,
     tags: ["abstract", "home"],
@@ -239,9 +289,9 @@ export const products: Product[] = [
       "The timeless 911 profile — flowing roofline, round headlight era, rear-engine stance — in minimalist line-art.",
     price: 89,
     image: productImg("product13.jpeg"),
-    images: [productImg("product13.jpeg")],
+    images: productImages("product13.jpeg"),
     badge: "Best Seller",
-    variants: ["36\" × 10\""],
+    variants: sizeVariants(89, {"small":"29\" × 8\"","medium":"36\" × 10\"","large":"43\" × 12\""}),
     rating: 4.8,
     reviewCount: 312,
     tags: ["best-seller", "porsche", "car"],
@@ -254,8 +304,8 @@ export const products: Product[] = [
       "A longer, grander take on the R35 silhouette for bigger walls. Same precision cut, more presence.",
     price: 115,
     image: productImg("product14.jpeg"),
-    images: [productImg("product14.jpeg")],
-    variants: ["36\" × 10\""],
+    images: productImages("product14.jpeg"),
+    variants: sizeVariants(115, {"small":"29\" × 8\"","medium":"36\" × 10\"","large":"43\" × 12\""}),
     rating: 4.7,
     reviewCount: 98,
     tags: ["nissan", "car"],
@@ -268,9 +318,9 @@ export const products: Product[] = [
       "JDM royalty. The legendary MK4 Supra in sleek line-art, celebrating the icon of the 90s and the big screen.",
     price: 108,
     image: productImg("product15.jpeg"),
-    images: [productImg("product15.jpeg")],
+    images: productImages("product15.jpeg"),
     badge: "Icon",
-    variants: ["36\" × 10\""],
+    variants: sizeVariants(108, {"small":"29\" × 8\"","medium":"36\" × 10\"","large":"43\" × 12\""}),
     rating: 4.9,
     reviewCount: 187,
     tags: ["toyota", "jdm", "car"],
@@ -283,9 +333,9 @@ export const products: Product[] = [
       "Eight-litres of French hypercar. The Chiron's dramatic silhouette in flowing black metal, custom-cut to order.",
     price: 135,
     image: productImg("product16.jpeg"),
-    images: [productImg("product16.jpeg")],
+    images: productImages("product16.jpeg"),
     badge: "Custom",
-    variants: ["Custom size"],
+    variants: sizeVariants(135, {"small":"Small","medium":"Medium","large":"Large"}),
     rating: 4.9,
     reviewCount: 76,
     tags: ["bugatti", "hypercar", "car", "custom"],
@@ -298,9 +348,9 @@ export const products: Product[] = [
       "A custom backlit motorcycle piece with a rider in full gear. Warm LED glow brings the cutout to life at night.",
     price: 149,
     image: productImg("product17.jpeg"),
-    images: [productImg("product17.jpeg")],
+    images: productImages("product17.jpeg"),
     badge: "Backlit",
-    variants: ["Custom size"],
+    variants: sizeVariants(149, {"small":"Small","medium":"Medium","large":"Large"}),
     rating: 5.0,
     reviewCount: 41,
     tags: ["custom", "backlit", "motorcycle", "led"],
@@ -313,9 +363,9 @@ export const products: Product[] = [
       "Streetfighter attitude in black metal with warm LED backlighting. A statement piece for riders and garages.",
     price: 139,
     image: productImg("product18.jpeg"),
-    images: [productImg("product18.jpeg")],
+    images: productImages("product18.jpeg"),
     badge: "Backlit",
-    variants: ["Custom size"],
+    variants: sizeVariants(139, {"small":"Small","medium":"Medium","large":"Large"}),
     rating: 4.9,
     reviewCount: 33,
     tags: ["custom", "backlit", "motorcycle", "led"],
@@ -328,9 +378,9 @@ export const products: Product[] = [
       "A personalised couple's piece — two hands forming a heart, names and a date laser-cut with warm LED backlight.",
     price: 129,
     image: productImg("product19.jpeg"),
-    images: [productImg("product19.jpeg")],
+    images: productImages("product19.jpeg"),
     badge: "Personalised",
-    variants: ["Custom size"],
+    variants: sizeVariants(129, {"small":"Small","medium":"Medium","large":"Large"}),
     rating: 5.0,
     reviewCount: 28,
     tags: ["custom", "backlit", "personalised", "led"],
@@ -343,9 +393,9 @@ export const products: Product[] = [
       "A professional backlit clinic sign — stethoscope with floral scrollwork and a name, laser-cut and LED-lit.",
     price: 119,
     image: productImg("product20.webp"),
-    images: [productImg("product20.webp")],
+    images: productImages("product20.webp"),
     badge: "Business",
-    variants: ["Custom size"],
+    variants: sizeVariants(119, {"small":"Small","medium":"Medium","large":"Large"}),
     rating: 4.8,
     reviewCount: 19,
     tags: ["custom", "backlit", "business", "led"],
@@ -358,9 +408,9 @@ export const products: Product[] = [
       "The go-anywhere 80 Series in black metal with warm LED glow — built for the off-road enthusiast's wall.",
     price: 155,
     image: productImg("product21.jpg"),
-    images: [productImg("product21.jpg")],
+    images: productImages("product21.jpg"),
     badge: "Backlit",
-    variants: ["Custom size"],
+    variants: sizeVariants(155, {"small":"Small","medium":"Medium","large":"Large"}),
     rating: 4.9,
     reviewCount: 52,
     tags: ["custom", "backlit", "suv", "led"],
@@ -373,9 +423,9 @@ export const products: Product[] = [
       "A brand sign for Only Sukoon — elegant intertwined monogram with warm LED backlight. Custom logos welcome.",
     price: 125,
     image: productImg("product22.jpg"),
-    images: [productImg("product22.jpg")],
+    images: productImages("product22.jpg"),
     badge: "Custom Logo",
-    variants: ["Custom size"],
+    variants: sizeVariants(125, {"small":"Small","medium":"Medium","large":"Large"}),
     rating: 4.9,
     reviewCount: 24,
     tags: ["custom", "backlit", "business", "logo", "led"],
@@ -388,9 +438,9 @@ export const products: Product[] = [
       "A barbershop classic — two profiles, crossed scissors and razor, with the name cut out and backlit in warm LED.",
     price: 129,
     image: productImg("product23.jpg"),
-    images: [productImg("product23.jpg")],
+    images: productImages("product23.jpg"),
     badge: "Business",
-    variants: ["Custom size"],
+    variants: sizeVariants(129, {"small":"Small","medium":"Medium","large":"Large"}),
     rating: 4.7,
     reviewCount: 15,
     tags: ["custom", "backlit", "business", "led"],
@@ -403,9 +453,9 @@ export const products: Product[] = [
       "Born to be wild. The Street Glide's long, low cruiser lines in flowing black metal line-art with saddlebags and fairing.",
     price: 98,
     image: productImg("product24.jpg"),
-    images: [productImg("product24.jpg")],
+    images: productImages("product24.jpg"),
     badge: "New",
-    variants: ["36\" × 12\""],
+    variants: sizeVariants(98, {"small":"29\" × 9.5\"","medium":"36\" × 12\"","large":"43\" × 14.5\""}),
     rating: 4.8,
     reviewCount: 67,
     tags: ["new-arrival", "harley", "motorcycle"],
@@ -418,9 +468,9 @@ export const products: Product[] = [
       "The Aventador's razor-edged silhouette in black metal — pure drama, pure V12. A statement piece for any wall.",
     price: 112,
     image: productImg("product25.jpg"),
-    images: [productImg("product25.jpg")],
+    images: productImages("product25.jpg"),
     badge: "Best Seller",
-    variants: ["36\" × 14\""],
+    variants: sizeVariants(112, {"small":"29\" × 11\"","medium":"36\" × 14\"","large":"43\" × 17\""}),
     rating: 4.9,
     reviewCount: 203,
     tags: ["best-seller", "lamborghini", "car"],
@@ -433,8 +483,8 @@ export const products: Product[] = [
       "Modern muscle with a mean face. The Challenger Scat Pack's broad stance and hood scoops in bold metal cut.",
     price: 102,
     image: productImg("product26.jpg"),
-    images: [productImg("product26.jpg")],
-    variants: ["36\" × 13\""],
+    images: productImages("product26.jpg"),
+    variants: sizeVariants(102, {"small":"29\" × 10.5\"","medium":"36\" × 13\"","large":"43\" × 15.5\""}),
     rating: 4.7,
     reviewCount: 89,
     tags: ["dodge", "muscle", "car"],
@@ -447,8 +497,8 @@ export const products: Product[] = [
       "A naked sportbike in minimalist line-art, cut from 2mm black metal. Built for riders who love clean design.",
     price: 92,
     image: productImg("product27.jpg"),
-    images: [productImg("product27.jpg")],
-    variants: ["30\" × 11\""],
+    images: productImages("product27.jpg"),
+    variants: sizeVariants(92, {"small":"24\" × 9\"","medium":"30\" × 11\"","large":"36\" × 13\""}),
     rating: 4.8,
     reviewCount: 54,
     tags: ["motorcycle"],
@@ -575,6 +625,48 @@ export const faqs: FAQ[] = [
 
 export function getProductBySlug(slug: string) {
   return products.find((p) => p.slug === slug)
+}
+
+export function getVariant(product: Product, name: string): ProductVariant | undefined {
+  return product.variants.find((v) => v.name === name)
+}
+
+/** Price for a specific variant, falling back to the product base price. */
+export function getVariantPrice(product: Product, name: string): number {
+  return getVariant(product, name)?.price ?? product.price
+}
+
+/** The first variant, or undefined for products without variants. */
+export function getDefaultVariant(product: Product): ProductVariant | undefined {
+  return product.variants[0]
+}
+
+/**
+ * Returns up to 4 related products, preferring ones that share a tag with the
+ * given product (best-sellers first). Falls back to the first 4 products.
+ */
+export function getRelatedProducts(product: Product, limit = 4): Product[] {
+  const productTags = new Set(product.tags)
+  const scored = products
+    .filter((p) => p.id !== product.id)
+    .map((p) => ({
+      product: p,
+      score: p.tags.filter((t) => productTags.has(t)).length,
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      const aBest = a.product.tags.includes("best-seller") ? 1 : 0
+      const bBest = b.product.tags.includes("best-seller") ? 1 : 0
+      return bBest - aBest
+    })
+  const related = scored.slice(0, limit).map((entry) => entry.product)
+  if (related.length < limit) {
+    for (const p of products) {
+      if (related.length >= limit) break
+      if (!related.includes(p) && p.id !== product.id) related.push(p)
+    }
+  }
+  return related
 }
 
 export function getCampaignBySlug(slug: string) {

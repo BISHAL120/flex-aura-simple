@@ -310,7 +310,7 @@ const CheckoutPage = () => {
                   </p>
                 </div>
                 <span className="text-sm font-medium">
-                  {formatPrice(item.product.price * item.quantity)}
+                  {formatPrice(item.price * item.quantity)}
                 </span>
               </div>
             ))}

@@ -9,6 +9,7 @@ export function SectionHeading({
   align = "center",
   as: Heading = "h2",
   className,
+  titleClassName,
 }: {
   id?: string
   eyebrow?: string
@@ -17,6 +18,7 @@ export function SectionHeading({
   align?: "left" | "center"
   as?: "h1" | "h2"
   className?: string
+  titleClassName?: string
 }) {
   return (
     <div
@@ -27,7 +29,13 @@ export function SectionHeading({
       )}
     >
       {eyebrow ? <Badge variant="secondary">{eyebrow}</Badge> : null}
-      <Heading id={id} className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
+      <Heading
+        id={id}
+        className={cn(
+          "font-heading text-2xl font-semibold tracking-tight sm:text-3xl",
+          titleClassName
+        )}
+      >
         {title}
       </Heading>
       {description ? (

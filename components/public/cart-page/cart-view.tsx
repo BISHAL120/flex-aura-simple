@@ -108,10 +108,10 @@ const CartPage = () => {
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-xs text-muted-foreground">
-                      {formatPrice(item.product.price)} each
+                      {formatPrice(item.price)} each
                     </span>
                     <span className="font-semibold">
-                      {formatPrice(item.product.price * item.quantity)}
+                      {formatPrice(item.price * item.quantity)}
                     </span>
                   </div>
                 </div>

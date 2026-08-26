@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { ShoppingCartIcon, StarIcon } from "lucide-react"
 
 import { useStore } from "@/components/store-provider"
@@ -15,13 +16,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import { formatPrice, type Product } from "@/lib/data"
+import { formatPrice, getVariant, getVariantPrice, type Product } from "@/lib/data"
 
 const SWAP_THRESHOLD_PX = 48
 
 export function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const { addToCart } = useStore()
-  const defaultVariant = product.variants[0] ?? ""
+  const defaultVariant = product.variants[0]?.name ?? ""
   const [variant, setVariant] = React.useState(defaultVariant)
   const [imageIndex, setImageIndex] = React.useState(0)
   // Track pointer position and the position of the last committed swap so a
@@ -30,14 +31,14 @@ export function ProductCard({ product, priority = false }: { product: Product; p
   const lastSwapXRef = React.useRef(0)
   const hasEnteredRef = React.useRef(false)
 
-  function handlePointerEnter(event: React.PointerEvent<HTMLDivElement>) {
+  function handlePointerEnter(event: React.PointerEvent<HTMLElement>) {
     const rect = event.currentTarget.getBoundingClientRect()
     lastXRef.current = event.clientX - rect.left
     lastSwapXRef.current = lastXRef.current
     hasEnteredRef.current = true
   }
 
-  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+  function handlePointerMove(event: React.PointerEvent<HTMLElement>) {
     // Touch doesn't produce hover movement — the dot buttons cover that.
     if (event.pointerType !== "mouse" || !hasEnteredRef.current) return
     const rect = event.currentTarget.getBoundingClientRect()
@@ -68,7 +69,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
   // remounts today), don't keep a stale variant or image selected.
   React.useEffect(() => {
     queueMicrotask(() => {
-      setVariant(product.variants[0] ?? "")
+      setVariant(product.variants[0]?.name ?? "")
       setImageIndex(0)
     })
   }, [product])
@@ -80,8 +81,10 @@ export function ProductCard({ product, priority = false }: { product: Product; p
 
   return (
     <Card className="flex h-full flex-col gap-0 overflow-hidden py-0">
-      <div
-        className="relative aspect-square overflow-hidden"
+      <Link
+        href={`/products/${product.slug}`}
+        className="relative block aspect-square overflow-hidden"
+        aria-label={`View ${product.name}`}
         onPointerEnter={handlePointerEnter}
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
@@ -130,11 +133,13 @@ export function ProductCard({ product, priority = false }: { product: Product; p
             ))}
           </div>
         ) : null}
-      </div>
+      </Link>
 
       <CardHeader className="gap-0 px-4 pt-3 pb-0">
         <CardTitle className="line-clamp-2 min-h-10 text-sm leading-5 font-medium">
-          {product.name}
+          <Link href={`/products/${product.slug}`} className="transition-colors hover:text-foreground/80">
+            {product.name}
+          </Link>
         </CardTitle>
         {/* Rating (left) + price (right) on one line */}
         <div className="mt-1 flex items-center justify-between gap-2">
@@ -146,10 +151,10 @@ export function ProductCard({ product, priority = false }: { product: Product; p
             <span>({product.reviewCount})</span>
           </span>
           <span className="flex items-baseline gap-1.5">
-            <span className="text-base font-semibold">{formatPrice(product.price)}</span>
-            {product.compareAtPrice != null ? (
+            <span className="text-base font-semibold">{formatPrice(getVariantPrice(product, variant))}</span>
+            {getVariant(product, variant)?.compareAtPrice != null ? (
               <span className="text-xs text-muted-foreground line-through">
-                {formatPrice(product.compareAtPrice)}
+                {formatPrice(getVariant(product, variant)!.compareAtPrice!)}
               </span>
             ) : null}
           </span>
@@ -160,18 +165,18 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         <div role="group" aria-label={`${product.name} options`} className="contents">
           {product.variants.map((v) => (
             <button
-              key={v}
+              key={v.name}
               type="button"
-              aria-pressed={variant === v}
-              onClick={() => setVariant(v)}
+              aria-pressed={variant === v.name}
+              onClick={() => setVariant(v.name)}
               className={cn(
                 "rounded-md border px-2.5 py-0.5 text-xs font-medium transition-colors",
-                variant === v
+                variant === v.name
                   ? "border-foreground bg-foreground text-background"
                   : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"
               )}
             >
-              {v}
+              {v.name}
             </button>
           ))}
         </div>
