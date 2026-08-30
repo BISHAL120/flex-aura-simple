@@ -1,7 +1,7 @@
 # Design
 
 - Prefers simple design and layout — "keep it simple" in terms of design. Confidence: 0.8
-- Wants designs responsive across mobile, tablet, laptop, and large monitor screens, with a hamburger menu on mobile and proper navigation on all devices. Confidence: 0.9
+- Wants designs responsive across mobile, tablet, laptop, and large monitor screens, with a hamburger menu on mobile and proper navigation on all devices — repeatedly and explicitly asks that UI/UX be responsive "for all screen sizes". Confidence: 0.95
 - Prefers page content in a centered max-width container (mx-auto), e.g., a 1500px cap with horizontal padding; explicitly flags full-bleed sections (like the hero carousel) that stretch full-width on wide/large monitors and asks for them to be capped and centered with `mx-auto`. Confidence: 0.9
 - Prefers subtle border radius on cards and controls — visibly rounded but restrained; explicitly rejects overly large radii ("too much") and fully flat/square corners ("don't fully remove"). Confidence: 0.9
 - Prefers product cards in a grid to be uniform in height with titles clamped to a max of 2 lines, so cards with 1-line and 2-line titles render identically and the grid rows stay aligned (no "broken" layout). Confidence: 0.8
@@ -16,3 +16,7 @@
 - Prefers content sections (e.g., FAQ) laid out with the section heading spanning the full width on top, then a two-column flex row with the image on the left and the content on the right, stacking vertically on mobile. Confidence: 0.6
 - When adding a new customer-facing page or feature, wants it surfaced in the site's header navigation (and footer) so it's reachable, not left as an orphan route. Confidence: 0.6
 - For customer order/request forms, wants a comprehensive structured intake: contact details (name, phone, address, country), a free-text requirement description, an optional reference image upload with preview, preset size choices plus a custom-size input, a light/backlit toggle, and a free-text special-request field. Confidence: 0.6
+- For product detail pages, wants the full e-commerce pattern of the reference page (e.g., steelshape.co): image gallery with thumbnails, sale price with strikethrough compare-at + discount badge, size/variant selector, add-to-cart, details/shipping/returns sections, trust perks, FAQ, and related products. Confidence: 0.6
+- Prefers product page content (details, shipping & returns, custom orders) shown fully visible, stacked one after another in a column with their own headings — explicitly rejects dropdowns/accordions for the product description ("don't add dropdown for the product description, show all the details one after another in column wise"). Confidence: 0.9
+- For the product detail image gallery, wants the standard e-commerce layout: one large main image with square mini-card thumbnails shown below it, plus prev/next arrows on the main image and click-to-swap via the thumbnails — every product should display multiple images (not a single image) so the gallery UI is fully visible. Confidence: 0.7
+y asked to reduce it to about half its size, favoring an asymmetric layout where the gallery column is narrower than the info column (e.g., 2fr/3fr grid) and the main image is capped at a max width and centered. Confidence: 0.6

@@ -1,5 +1,11 @@
 "use client"
 
+import * as React from "react"
+import Image from "next/image"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -7,10 +13,6 @@ import {
   LockIcon,
   ShoppingBagIcon,
 } from "lucide-react"
-import Image from "next/image"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import * as React from "react"
 
 import { Container } from "@/components/site/container"
 import { SectionHeading } from "@/components/site/section-heading"
@@ -18,34 +20,56 @@ import { useStore } from "@/components/store-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { FieldError } from "@/components/ui/field"
+import { toast } from "@/components/ui/toast"
 import { getShipping } from "@/lib/cart"
 import { formatPrice } from "@/lib/data"
 import { writeStoredOrder } from "@/lib/order"
 import { cn } from "@/lib/utils"
+import {
+  checkoutDetailsSchema,
+  checkoutPaymentSchema,
+  type CheckoutDetailsFormValues,
+  type CheckoutPaymentFormValues,
+} from "@/lib/validators"
 
 type Step = "details" | "payment"
-
-const CARD_NUMBER_PATTERN = "[0-9 ]{13,23}"
-const EXPIRY_PATTERN = "(0[1-9]|1[0-2])/[0-9]{2}"
-const CVC_PATTERN = "[0-9]{3,4}"
-
-function isValidCardNumber(value: string) {
-  const digits = value.replace(/[^0-9]/g, "")
-  return digits.length >= 13 && digits.length <= 19
-}
 
 const CheckoutPage = () => {
   const router = useRouter()
   const { cartItems, subtotal, clearCart } = useStore()
   const [step, setStep] = React.useState<Step>("details")
   const [pending, setPending] = React.useState(false)
-  const paymentFormRef = React.useRef<HTMLFormElement>(null)
   const timerRef = React.useRef<number | null>(null)
+
+  // Step 1 Form
+  const detailsForm = useForm<CheckoutDetailsFormValues>({
+    resolver: zodResolver(checkoutDetailsSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      address: "",
+      city: "",
+      zip: "",
+      country: "United States",
+    },
+  })
+
+  // Step 2 Form
+  const paymentForm = useForm<CheckoutPaymentFormValues>({
+    resolver: zodResolver(checkoutPaymentSchema),
+    defaultValues: {
+      cardName: "",
+      cardNumber: "",
+      expiry: "",
+      cvc: "",
+    },
+  })
 
   React.useEffect(() => {
     return () => {
-      // Don't let a pending payment redirect fire after the component unmounts
-      // (e.g. the user navigates away mid-"processing").
       if (timerRef.current !== null) window.clearTimeout(timerRef.current)
     }
   }, [])
@@ -53,43 +77,43 @@ const CheckoutPage = () => {
   const shipping = getShipping(subtotal)
   const total = subtotal + shipping
 
-  function handleDetailsSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  function onDetailsSubmit(_data: CheckoutDetailsFormValues) {
     setStep("payment")
-    // Move focus into the payment form so keyboard/screen-reader users aren't
-    // left on the now-hidden details button.
-    paymentFormRef.current
-      ?.querySelector<HTMLElement>("input")
-      ?.focus()
   }
 
-  function handlePaymentSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (pending) return
-    if (cartItems.length === 0) return
+  function onDetailsError() {
+    toast.add({
+      type: "error",
+      title: "Details required",
+      description: "Please fill in all shipping details before proceeding.",
+    })
+  }
 
-    const form = event.currentTarget
-    const cardNumber = new FormData(form).get("cardNumber")
-    if (typeof cardNumber === "string" && !isValidCardNumber(cardNumber)) {
-      form.querySelector<HTMLElement>('input[name="cardNumber"]')?.focus()
-      return
-    }
+  function onPaymentSubmit(_data: CheckoutPaymentFormValues) {
+    if (pending || cartItems.length === 0) return
 
     setPending(true)
-
-    // Placeholder for a real order API. A production build would POST the
-    // cart to a route handler/server action that re-validates prices.
-    const orderNumber = `FA-${(crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)).slice(0, 8).toUpperCase()}`
+    const orderNumber = `FA-${(typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)).slice(0, 8).toUpperCase()}`
     writeStoredOrder({ orderNumber, total })
 
-    // Keep the cart intact while "processing", then clear it and navigate.
-    // Clearing before the redirect would swap the checkout page to the empty
-    // state mid-flight and strand the user.
     timerRef.current = window.setTimeout(() => {
       clearCart()
       setPending(false)
+      toast.add({
+        type: "success",
+        title: "Order placed!",
+        description: `Your order #${orderNumber} has been received.`,
+      })
       router.push("/order-confirmation")
     }, 900)
+  }
+
+  function onPaymentError() {
+    toast.add({
+      type: "error",
+      title: "Payment invalid",
+      description: "Please check your payment information and try again.",
+    })
   }
 
   if (cartItems.length === 0) {
@@ -131,75 +155,109 @@ const CheckoutPage = () => {
         <div className="flex flex-col gap-6">
           {/* Step 1: customer details */}
           <form
-            onSubmit={handleDetailsSubmit}
+            onSubmit={detailsForm.handleSubmit(onDetailsSubmit, onDetailsError)}
             className={cn("flex flex-col gap-4 rounded-lg border bg-card p-5", step !== "details" && "hidden")}
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="first-name">First name</Label>
+                <Label htmlFor="chk-first-name">First name</Label>
                 <Input
-                  id="first-name"
-                  name="firstName"
+                  id="chk-first-name"
                   autoComplete="given-name"
-                  required
                   placeholder="Jane"
+                  {...detailsForm.register("firstName")}
                 />
+                {detailsForm.formState.errors.firstName && (
+                  <FieldError errors={[{ message: detailsForm.formState.errors.firstName.message }]} />
+                )}
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="last-name">Last name</Label>
+                <Label htmlFor="chk-last-name">Last name</Label>
                 <Input
-                  id="last-name"
-                  name="lastName"
+                  id="chk-last-name"
                   autoComplete="family-name"
-                  required
                   placeholder="Doe"
+                  {...detailsForm.register("lastName")}
                 />
+                {detailsForm.formState.errors.lastName && (
+                  <FieldError errors={[{ message: detailsForm.formState.errors.lastName.message }]} />
+                )}
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="checkout-email">Email</Label>
+              <Label htmlFor="chk-email">Email</Label>
               <Input
-                id="checkout-email"
-                name="email"
+                id="chk-email"
                 type="email"
                 autoComplete="email"
-                required
                 placeholder="jane@example.com"
+                {...detailsForm.register("email")}
               />
+              {detailsForm.formState.errors.email && (
+                <FieldError errors={[{ message: detailsForm.formState.errors.email.message }]} />
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="chk-phone">Phone</Label>
               <Input
-                id="phone"
-                name="phone"
+                id="chk-phone"
                 type="tel"
                 autoComplete="tel"
-                required
                 placeholder="+1 (555) 000-0000"
+                {...detailsForm.register("phone")}
               />
+              {detailsForm.formState.errors.phone && (
+                <FieldError errors={[{ message: detailsForm.formState.errors.phone.message }]} />
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="chk-address">Address</Label>
               <Input
-                id="address"
-                name="address"
+                id="chk-address"
                 autoComplete="street-address"
-                required
                 placeholder="128 Market Street"
+                {...detailsForm.register("address")}
               />
+              {detailsForm.formState.errors.address && (
+                <FieldError errors={[{ message: detailsForm.formState.errors.address.message }]} />
+              )}
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="city">City</Label>
-                <Input id="city" name="city" autoComplete="address-level2" required placeholder="Dhaka" />
+                <Label htmlFor="chk-city">City</Label>
+                <Input
+                  id="chk-city"
+                  autoComplete="address-level2"
+                  placeholder="Austin"
+                  {...detailsForm.register("city")}
+                />
+                {detailsForm.formState.errors.city && (
+                  <FieldError errors={[{ message: detailsForm.formState.errors.city.message }]} />
+                )}
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="zip">ZIP</Label>
-                <Input id="zip" name="zip" autoComplete="postal-code" required placeholder="94105" />
+                <Label htmlFor="chk-zip">ZIP</Label>
+                <Input
+                  id="chk-zip"
+                  autoComplete="postal-code"
+                  placeholder="78701"
+                  {...detailsForm.register("zip")}
+                />
+                {detailsForm.formState.errors.zip && (
+                  <FieldError errors={[{ message: detailsForm.formState.errors.zip.message }]} />
+                )}
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="country">Country</Label>
-                <Input id="country" name="country" autoComplete="country-name" required placeholder="United States" />
+                <Label htmlFor="chk-country">Country</Label>
+                <Input
+                  id="chk-country"
+                  autoComplete="country-name"
+                  placeholder="United States"
+                  {...detailsForm.register("country")}
+                />
+                {detailsForm.formState.errors.country && (
+                  <FieldError errors={[{ message: detailsForm.formState.errors.country.message }]} />
+                )}
               </div>
             </div>
             <Button type="submit" size="lg" className="mt-1">
@@ -210,64 +268,63 @@ const CheckoutPage = () => {
 
           {/* Step 2: payment */}
           <form
-            ref={paymentFormRef}
-            onSubmit={handlePaymentSubmit}
+            onSubmit={paymentForm.handleSubmit(onPaymentSubmit, onPaymentError)}
             aria-busy={pending}
             className={cn("flex flex-col gap-4 rounded-lg border bg-card p-5", step !== "payment" && "hidden")}
           >
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <LockIcon className="size-4" />
-              This is a demo checkout — no payment is processed or stored.
+              This is a demo checkout — mock orders will be saved to your workshop.
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="card-name">Name on card</Label>
               <Input
                 id="card-name"
-                name="cardName"
                 autoComplete="cc-name"
-                required
                 placeholder="Jane Doe"
+                {...paymentForm.register("cardName")}
               />
+              {paymentForm.formState.errors.cardName && (
+                <FieldError errors={[{ message: paymentForm.formState.errors.cardName.message }]} />
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="card-number">Card number</Label>
               <Input
                 id="card-number"
-                name="cardNumber"
                 autoComplete="cc-number"
-                required
                 inputMode="numeric"
-                pattern={CARD_NUMBER_PATTERN}
-                title="Card number must be 13–19 digits"
                 placeholder="4242 4242 4242 4242"
+                {...paymentForm.register("cardNumber")}
               />
+              {paymentForm.formState.errors.cardNumber && (
+                <FieldError errors={[{ message: paymentForm.formState.errors.cardNumber.message }]} />
+              )}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="expiry">Expiry</Label>
                 <Input
                   id="expiry"
-                  name="expiry"
                   autoComplete="cc-exp"
-                  required
-                  inputMode="numeric"
-                  pattern={EXPIRY_PATTERN}
-                  title="Expiry must be in MM/YY format"
                   placeholder="MM/YY"
+                  {...paymentForm.register("expiry")}
                 />
+                {paymentForm.formState.errors.expiry && (
+                  <FieldError errors={[{ message: paymentForm.formState.errors.expiry.message }]} />
+                )}
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cvc">CVC</Label>
                 <Input
                   id="cvc"
-                  name="cvc"
                   autoComplete="cc-csc"
-                  required
-                  inputMode="numeric"
-                  pattern={CVC_PATTERN}
-                  title="CVC must be 3–4 digits"
                   placeholder="123"
+                  {...paymentForm.register("cvc")}
                 />
+                {paymentForm.formState.errors.cvc && (
+                  <FieldError errors={[{ message: paymentForm.formState.errors.cvc.message }]} />
+                )}
               </div>
             </div>
             <div className="flex items-center justify-between gap-3">

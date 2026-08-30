@@ -1,30 +1,47 @@
 "use client"
 
 import * as React from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { MailIcon, SendIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "@/components/ui/toast"
 import { Container } from "@/components/site/container"
+import { newsletterSchema, type NewsletterFormValues } from "@/lib/validators"
 
 export function Newsletter({ compact = false }: { compact?: boolean }) {
-  const [email, setEmail] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!email.trim() || submitting) return
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<NewsletterFormValues>({
+    resolver: zodResolver(newsletterSchema),
+    defaultValues: { email: "" },
+  })
+
+  function onFormSubmit(_data: NewsletterFormValues) {
+    if (submitting) return
     setSubmitting(true)
     toast.add({
       type: "success",
       title: "Subscribed!",
       description: "Thanks for joining the Flex Aura metal art newsletter.",
     })
-    setEmail("")
-    // Release the guard after the toast animation so rapid double-clicks
-    // don't fire duplicate toasts.
+    reset()
     window.setTimeout(() => setSubmitting(false), 400)
+  }
+
+  function onFormError() {
+    toast.add({
+      type: "error",
+      title: "Invalid Email",
+      description: "Please enter a valid email address.",
+    })
   }
 
   return (
@@ -43,22 +60,28 @@ export function Newsletter({ compact = false }: { compact?: boolean }) {
           </p>
         </div>
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleSubmit(onFormSubmit, onFormError)}
           className="flex w-full max-w-md flex-col gap-2 sm:flex-row"
         >
-          <Input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email"
-            aria-label="Email address"
-            className="h-10 flex-1 border-transparent bg-white/10 placeholder:text-primary-foreground/60 focus-visible:border-white/40 focus-visible:ring-white/30"
-          />
+          <div className="flex-1 flex flex-col items-start">
+            <Input
+              type="email"
+              placeholder="Enter your email"
+              aria-label="Email address"
+              {...register("email")}
+              className="h-10 w-full border-transparent bg-white/10 placeholder:text-primary-foreground/60 focus-visible:border-white/40 focus-visible:ring-white/30"
+            />
+            {errors.email && (
+              <span className="text-[11px] text-destructive-foreground/90 mt-1 font-medium">
+                {errors.email.message}
+              </span>
+            )}
+          </div>
           <Button
             type="submit"
             size="lg"
-            className="bg-white text-black hover:bg-white/90"
+            disabled={submitting}
+            className="bg-white text-black hover:bg-white/90 shrink-0"
           >
             <SendIcon />
             Subscribe

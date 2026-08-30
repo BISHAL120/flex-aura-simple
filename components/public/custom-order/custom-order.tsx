@@ -1,4 +1,3 @@
-import type { Metadata } from "next"
 import { PaletteIcon, RulerIcon, LightbulbIcon, TruckIcon } from "lucide-react"
 
 import { Container } from "@/components/site/container"

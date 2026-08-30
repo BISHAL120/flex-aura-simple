@@ -16,12 +16,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { products, type Product } from "@/lib/data"
 
 type SortKey = "featured" | "price-asc" | "price-desc" | "rating" | "newest"
 
 const CATEGORIES = ["All", "Cars", "Motorcycles", "Custom & Backlit", "Abstract"] as const
 const SORT_KEYS: SortKey[] = ["featured", "price-asc", "price-desc", "rating", "newest"]
+const PRODUCTS_PER_PAGE = 9
 
 function isCategory(value: string): value is (typeof CATEGORIES)[number] {
   return (CATEGORIES as readonly string[]).includes(value)
@@ -42,23 +51,32 @@ export function ShopView() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // The URL is the single source of truth for search/filter/sort state so the
-  // back button, shareable links and the header search all stay in sync.
+  // The URL is the single source of truth for search/filter/sort/pagination state
   const query = searchParams.get("q") ?? ""
   const categoryParam = searchParams.get("category") ?? "All"
   const sortParam = searchParams.get("sort") ?? "featured"
+  const pageParam = parseInt(searchParams.get("page") ?? "1", 10)
+  const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1
+
   const category: (typeof CATEGORIES)[number] = isCategory(categoryParam) ? categoryParam : "All"
   const sort: SortKey = isSortKey(sortParam) ? sortParam : "featured"
 
-  function updateParam(key: string, value: string, defaultValue: string) {
+  function updateParam(key: string, value: string, defaultValue: string, resetPage = true) {
     const next = new URLSearchParams(searchParams.toString())
     if (value === defaultValue || value === "") {
       next.delete(key)
     } else {
       next.set(key, value)
     }
+    if (resetPage && key !== "page") {
+      next.delete("page")
+    }
     const qs = next.toString()
     router.replace(qs ? `/shop?${qs}` : "/shop", { scroll: false })
+  }
+
+  function setPage(newPage: number) {
+    updateParam("page", newPage.toString(), "1", false)
   }
 
   const filtered = React.useMemo(() => {
@@ -99,6 +117,12 @@ export function ShopView() {
 
     return result
   }, [query, category, sort])
+
+  const totalPages = Math.ceil(filtered.length / PRODUCTS_PER_PAGE) || 1
+  const paginatedProducts = React.useMemo(() => {
+    const start = (currentPage - 1) * PRODUCTS_PER_PAGE
+    return filtered.slice(start, start + PRODUCTS_PER_PAGE)
+  }, [filtered, currentPage])
 
   return (
     <Container className="py-10 sm:py-14">
@@ -172,7 +196,53 @@ export function ShopView() {
 
       {/* Results */}
       {filtered.length > 0 ? (
-        <ProductGrid products={filtered} />
+        <div className="flex flex-col gap-10">
+          <ProductGrid products={paginatedProducts} />
+
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (currentPage > 1) setPage(currentPage - 1)
+                    }}
+                    className={currentPage === 1 ? "pointer-events-none opacity-40" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <PaginationItem key={p}>
+                    <PaginationLink
+                      href="#"
+                      isActive={p === currentPage}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setPage(p)
+                      }}
+                      className="cursor-pointer"
+                    >
+                      {p}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      if (currentPage < totalPages) setPage(currentPage + 1)
+                    }}
+                    className={currentPage === totalPages ? "pointer-events-none opacity-40" : "cursor-pointer"}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </div>
       ) : (
         <div className="flex flex-col items-center gap-4 rounded-lg border bg-card py-20 text-center">
           <PackageSearchIcon className="size-10 text-muted-foreground" />
