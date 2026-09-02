@@ -15,11 +15,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatPrice } from "@/lib/data"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
 import { getOrderStatusBadge } from "@/components/admin/overview/recent-orders-table"
 import { OrderDetailsSheet } from "@/components/admin/orders/order-details-sheet"
 import { DataPagination } from "@/components/admin/common/data-pagination"
-import type { AdminOrder } from "@/lib/admin-data"
+import { initialOrders, type AdminOrder, type OrderItem } from "@/lib/admin-data"
 
 const STATUS_TABS: { label: string; value: string }[] = [
   { label: "All Orders", value: "all" },
@@ -33,7 +32,7 @@ const STATUS_TABS: { label: string; value: string }[] = [
 ]
 
 export function OrderTable() {
-  const { orders } = useAdminStore()
+  const orders: AdminOrder[] = initialOrders
   const [activeTab, setActiveTab] = React.useState("all")
   const [search, setSearch] = React.useState("")
   const [page, setPage] = React.useState(1)
@@ -197,7 +196,7 @@ export function OrderTable() {
                           {order.items.length} {order.items.length === 1 ? "piece" : "pieces"}
                         </span>
                         <span className="text-[11px] text-muted-foreground truncate max-w-[150px]">
-                          {order.items.map((i) => i.productName.split("—")[0]).join(", ")}
+                          {order.items.map((i: OrderItem) => i.productName.split("—")[0]).join(", ")}
                         </span>
                       </div>
                     </TableCell>

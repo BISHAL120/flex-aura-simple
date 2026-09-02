@@ -1,7 +1,7 @@
 # Workflow
 
 - Prefers planning before executing: explicitly asks to use plan mode for proper planning, then create a todo list of all tasks, and only then start executing. Confidence: 0.9
-- Wants work reviewed by dedicated senior code-review agents (subagents) — repeatedly asks to "use the senior code review agent(s)" for reviewing changed files — and expects all flagged problems to be fixed and re-verified (typecheck/lint/build) before the work is considered done. Confidence: 0.9
+- Wants work reviewed by dedicated senior code-review agents (subagents) — repeatedly asks to "use the senior code review agent(s)" for reviewing changed files — and expects all flagged problems to be fixed and re-verified (typecheck/lint/build) before the work is considered done. Confidence: 0.95
 - Wants meaningful, descriptive commit messages that summarize the change (structured, e.g., conventional "feat:"/"refactor:" prefix with a body capturing the full scope) rather than generic ones — "write a meaningful commit message and commit the changed files." Confidence: 0.95
 - Expects finished work to be committed and pushed to the remote as part of wrapping up — "and push the code." Confidence: 0.8
 - Deploys to Vercel (auto-deploys on push to main) and expects the build to pass there: because Vercel runs `pnpm lint` during the build, the codebase must have zero lint errors — pre-existing errors in shipped/vendor UI-kit files must be fixed rather than left as "don't touch" exceptions. Confidence: 0.8

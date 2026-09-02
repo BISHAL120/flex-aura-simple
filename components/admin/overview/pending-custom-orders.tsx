@@ -9,10 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/data"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { initialCustomOrders, type CustomOrderInquiry } from "@/lib/admin-data"
 
 export function PendingCustomOrders() {
-  const { customOrders } = useAdminStore()
+  const customOrders: CustomOrderInquiry[] = initialCustomOrders
   const pendingInquiries = customOrders.slice(0, 4)
 
   return (

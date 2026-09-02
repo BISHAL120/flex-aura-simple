@@ -20,8 +20,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
-import type { AdminCategory } from "@/lib/admin-data"
+import { initialCategories, type AdminCategory } from "@/lib/admin-data"
 import { categorySchema, slugify, type CategoryFormValues } from "@/lib/validators"
 
 const PRESET_IMAGES = [
@@ -46,7 +45,7 @@ export function CategoryDialog({
   onOpenChange,
   categoryToEdit,
 }: CategoryDialogProps) {
-  const { categories, addCategory, updateCategory } = useAdminStore()
+  const categories = initialCategories
   const isEditing = !!categoryToEdit
 
   const [tagsInput, setTagsInput] = React.useState("")
@@ -145,9 +144,17 @@ export function CategoryDialog({
     }
 
     if (isEditing && categoryToEdit) {
-      updateCategory(categoryToEdit.id, data)
+      toast.add({
+        type: "success",
+        title: "Category updated",
+        description: `${data.name} changes saved.`,
+      })
     } else {
-      addCategory(data)
+      toast.add({
+        type: "success",
+        title: "Category created",
+        description: `${data.name} has been created.`,
+      })
     }
 
     onOpenChange(false)

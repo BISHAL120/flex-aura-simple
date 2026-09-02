@@ -5,28 +5,17 @@ import { useParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeftIcon } from "lucide-react"
 
-import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { initialOrders } from "@/lib/admin-data"
 import { OrderDetailsView } from "@/components/admin/orders/order-details-view"
 
 export default function AdminOrderDetailsPage() {
   const params = useParams()
   const id = params?.id as string
-  const { orders, hasHydrated } = useAdminStore()
 
   const order = React.useMemo(() => {
-    return orders.find((o) => o.id === id || o.orderNumber.toLowerCase() === id?.toLowerCase())
-  }, [orders, id])
-
-  if (!hasHydrated) {
-    return (
-      <div className="flex flex-col gap-6 py-6 animate-pulse">
-        <Skeleton className="h-8 w-48 rounded" />
-        <Skeleton className="h-64 w-full rounded-lg" />
-      </div>
-    )
-  }
+    return initialOrders.find((o) => o.id === id || o.orderNumber.toLowerCase() === id?.toLowerCase())
+  }, [id])
 
   if (!order) {
     return (

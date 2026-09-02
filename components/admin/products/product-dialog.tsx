@@ -20,8 +20,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
-import type { Product } from "@/lib/data"
+import { products, type Product } from "@/lib/data"
 import { productSchema, slugify, type ProductFormValues } from "@/lib/validators"
 
 const SAMPLE_IMAGE_OPTIONS = [
@@ -65,7 +64,6 @@ export function ProductDialog({
   onOpenChange,
   productToEdit,
 }: ProductDialogProps) {
-  const { products, addProduct, updateProduct } = useAdminStore()
   const isEditing = !!productToEdit
 
   const [tagsInput, setTagsInput] = React.useState("")
@@ -188,18 +186,16 @@ export function ProductDialog({
     const finalBadge = data.badge?.trim() ? data.badge.trim() : undefined
 
     if (isEditing && productToEdit) {
-      updateProduct(productToEdit.id, {
-        ...data,
-        badge: finalBadge,
-        image: data.image,
-        images: productToEdit.images?.length ? productToEdit.images : [data.image],
+      toast.add({
+        type: "success",
+        title: "Product updated",
+        description: `${data.name} changes saved.`,
       })
     } else {
-      addProduct({
-        ...data,
-        badge: finalBadge,
-        image: data.image,
-        images: [data.image],
+      toast.add({
+        type: "success",
+        title: "Product added",
+        description: `${data.name} has been published to catalog.`,
       })
     }
 

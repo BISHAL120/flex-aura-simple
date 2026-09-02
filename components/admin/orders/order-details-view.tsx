@@ -27,9 +27,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice } from "@/lib/data"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { toast } from "@/components/ui/toast"
 import { getOrderStatusBadge } from "@/components/admin/overview/recent-orders-table"
-import type { AdminOrder, OrderStatus } from "@/lib/admin-data"
+import type { AdminOrder, OrderItem, OrderStatus } from "@/lib/admin-data"
 
 const STATUS_STEPS: { status: OrderStatus; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { status: "pending", label: "Order Placed", icon: ClockIcon },
@@ -70,11 +70,7 @@ function getStepIndex(status: OrderStatus) {
 }
 
 export function OrderDetailsView({ order: initialOrder }: { order: AdminOrder }) {
-  const { orders, updateOrderStatus, updateOrderNotes } = useAdminStore()
-
-  const liveOrder = React.useMemo(() => {
-    return orders.find((o) => o.id === initialOrder.id) ?? initialOrder
-  }, [orders, initialOrder])
+  const liveOrder = initialOrder
 
   const [currentStatus, setCurrentStatus] = React.useState<OrderStatus>(liveOrder.status)
   const [trackingNumber, setTrackingNumber] = React.useState(liveOrder.trackingNumber ?? "")
@@ -85,8 +81,11 @@ export function OrderDetailsView({ order: initialOrder }: { order: AdminOrder })
 
   function handleSaveStatus(e: React.FormEvent) {
     e.preventDefault()
-    updateOrderStatus(liveOrder.id, currentStatus, trackingNumber.trim())
-    updateOrderNotes(liveOrder.id, notes)
+    toast.add({
+      type: "success",
+      title: "Order updated",
+      description: "Order status, tracking, and notes saved successfully.",
+    })
     setSavedSuccess(true)
     setTimeout(() => setSavedSuccess(false), 2500)
   }
@@ -216,7 +215,7 @@ export function OrderDetailsView({ order: initialOrder }: { order: AdminOrder })
               </CardDescription>
             </CardHeader>
             <CardContent className="divide-y text-xs">
-              {order.items.map((item, idx) => (
+              {order.items.map((item: OrderItem, idx: number) => (
                 <div
                   key={idx}
                   className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0"

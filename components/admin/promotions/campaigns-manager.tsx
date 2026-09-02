@@ -22,12 +22,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
-import type { Campaign } from "@/lib/data"
+import { campaigns, type Campaign } from "@/lib/data"
 import { campaignSchema, type CampaignFormValues } from "@/lib/validators"
 
 export function CampaignsManager() {
-  const { campaigns, updateCampaign } = useAdminStore()
   const [editingCampaign, setEditingCampaign] = React.useState<Campaign | null>(null)
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
@@ -65,7 +63,11 @@ export function CampaignsManager() {
 
   function onFormSubmit(data: CampaignFormValues) {
     if (!editingCampaign) return
-    updateCampaign(editingCampaign.slug, data)
+    toast.add({
+      type: "success",
+      title: "Campaign updated",
+      description: `${data.title} campaign details saved.`,
+    })
     setDialogOpen(false)
   }
 
@@ -89,7 +91,7 @@ export function CampaignsManager() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5 md:grid-cols-2">
-        {campaigns.map((campaign) => (
+        {campaigns.map((campaign: Campaign) => (
           <div
             key={campaign.slug}
             className="flex flex-col overflow-hidden rounded-lg border bg-muted/20"

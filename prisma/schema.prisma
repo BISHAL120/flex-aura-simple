@@ -1,0 +1,116 @@
+generator client {
+  provider      = "prisma-client-js"
+  engineType    = "binary"
+  // required for classic engine
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  // critical for Vercel
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+model User {
+  id            String    @id @map("_id")
+  firstName     String
+  lastName      String?
+  phoneNumber   String?
+  email         String
+  emailVerified Boolean   @default(false)
+  profileImage  String?
+  bio           String?
+  location      String?
+  isBanned      Boolean   @default(false)
+  role          Role[]    @default([USER])
+  sessions      Session[]
+  accounts      Account[]
+  // name field required for Better auth
+  name          String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @map("_id")
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @map("_id")
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @map("_id")
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String
+  token     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id              String  @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  slug            String  @unique
+  imageUrl        String
+  description     String?
+  icon            String?
+  color           String?
+  parentId        String?
+  isActive        Boolean @default(true)
+  isDeleted       Boolean @default(false)
+  sortOrder       Int?    @default(0)
+  metaTitle       String?
+  metaDescription String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

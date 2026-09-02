@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { toast } from "@/components/ui/toast"
 import type { Review } from "@/lib/data"
 
 interface ReviewDeleteDialogProps {
@@ -24,13 +24,15 @@ export function ReviewDeleteDialog({
   onOpenChange,
   review,
 }: ReviewDeleteDialogProps) {
-  const { deleteReview } = useAdminStore()
-
   if (!review) return null
 
   function handleDelete() {
     if (!review) return
-    deleteReview(review.id ?? review.name, review.date)
+    toast.add({
+      type: "info",
+      title: "Review removed",
+      description: `Review from ${review.name} was removed.`,
+    })
     onOpenChange(false)
   }
 

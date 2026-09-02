@@ -29,6 +29,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import HeaderStrip from "./header-strip"
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -126,23 +127,8 @@ export function SiteHeader() {
       >
         Skip to content
       </a>
-      {/* Utility bar */}
-      <div className="hidden border-b bg-muted/40 md:block">
-        <Container className="flex h-8 items-center justify-between text-xs text-muted-foreground">
-          <p className="flex items-center gap-4">
-            <span className="inline-flex items-center gap-1">
-              <TruckIcon className="size-3.5" /> Free shipping over $50
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <RotateCcwIcon className="size-3.5" /> 2mm laser-cut metal
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <HeadsetIcon className="size-3.5" /> Custom sizes available
-            </span>
-          </p>
-          <p>Welcome to Flex Aura</p>
-        </Container>
-      </div>
+      {/* Header Strip */}
+      <HeaderStrip />
 
       {/* Row 1: logo, search, actions */}
       <div className="border-b">
@@ -196,7 +182,18 @@ export function SiteHeader() {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href="/admin" />}
+              nativeButton={false}
+              className="hidden sm:inline-flex text-xs h-8 gap-1.5 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20"
+            >
+              <span>Admin</span>
+            </Button>
+
             <ThemeToggle />
             <div className="relative">
               <CartButton />

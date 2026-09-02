@@ -23,10 +23,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatPrice } from "@/lib/data"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
 import { CustomOrderDialog } from "@/components/admin/custom-orders/custom-order-dialog"
 import { DataPagination } from "@/components/admin/common/data-pagination"
-import type { CustomOrderInquiry, CustomOrderStatus } from "@/lib/admin-data"
+import { initialCustomOrders, type CustomOrderInquiry, type CustomOrderStatus } from "@/lib/admin-data"
 
 const PIPELINE_TABS: { label: string; value: string }[] = [
   { label: "All Custom Orders", value: "all" },
@@ -58,7 +57,7 @@ function getCustomStatusBadge(status: CustomOrderStatus) {
 }
 
 export function CustomOrderTable() {
-  const { customOrders } = useAdminStore()
+  const customOrders: CustomOrderInquiry[] = initialCustomOrders
   const [activeTab, setActiveTab] = React.useState("all")
   const [search, setSearch] = React.useState("")
   const [page, setPage] = React.useState(1)

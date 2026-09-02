@@ -21,8 +21,8 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
-import type { AdminCategory } from "@/lib/admin-data"
+import { initialCategories, type AdminCategory } from "@/lib/admin-data"
+import { products } from "@/lib/data"
 import { categorySchema, slugify, type CategoryFormValues } from "@/lib/validators"
 
 const PRESET_IMAGES = [
@@ -51,7 +51,7 @@ interface CategoryFormProps {
 
 export function CategoryForm({ category, mode }: CategoryFormProps) {
   const router = useRouter()
-  const { categories, addCategory, updateCategory, products } = useAdminStore()
+  const categories = initialCategories
   const [customImageUrl, setCustomImageUrl] = React.useState("")
   const [tagsInput, setTagsInput] = React.useState(
     category ? category.tags.join(", ") : "car, automotive"
@@ -139,9 +139,17 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
     }
 
     if (mode === "edit" && category) {
-      updateCategory(category.id, data)
+      toast.add({
+        type: "success",
+        title: "Category updated",
+        description: `${data.name} changes saved.`,
+      })
     } else {
-      addCategory(data)
+      toast.add({
+        type: "success",
+        title: "Category created",
+        description: `${data.name} has been created.`,
+      })
     }
 
     router.push("/admin/categories")

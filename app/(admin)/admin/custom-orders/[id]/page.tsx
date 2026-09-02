@@ -5,28 +5,17 @@ import { useParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeftIcon } from "lucide-react"
 
-import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { initialCustomOrders } from "@/lib/admin-data"
 import { CustomOrderDetailsView } from "@/components/admin/custom-orders/custom-order-details-view"
 
 export default function AdminCustomOrderDetailsPage() {
   const params = useParams()
   const id = params?.id as string
-  const { customOrders, hasHydrated } = useAdminStore()
 
   const inquiry = React.useMemo(() => {
-    return customOrders.find((c) => c.id === id || c.inquiryNumber.toLowerCase() === id?.toLowerCase())
-  }, [customOrders, id])
-
-  if (!hasHydrated) {
-    return (
-      <div className="flex flex-col gap-6 py-6 animate-pulse">
-        <Skeleton className="h-8 w-48 rounded" />
-        <Skeleton className="h-64 w-full rounded-lg" />
-      </div>
-    )
-  }
+    return initialCustomOrders.find((c) => c.id === id || c.inquiryNumber.toLowerCase() === id?.toLowerCase())
+  }, [id])
 
   if (!inquiry) {
     return (

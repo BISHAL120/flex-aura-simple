@@ -30,13 +30,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { initialOrders, initialCustomOrders } from "@/lib/admin-data"
+import { toast } from "@/components/ui/toast"
 
 export function AdminHeader() {
   const pathname = usePathname()
   const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
-  const { orders, customOrders, resetToDefaults } = useAdminStore()
+  const orders = initialOrders
+  const customOrders = initialCustomOrders
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [mounted, setMounted] = React.useState(false)
@@ -139,7 +141,13 @@ export function AdminHeader() {
         <Button
           variant="ghost"
           size="icon-sm"
-          onClick={resetToDefaults}
+          onClick={() => {
+            toast.add({
+              type: "info",
+              title: "Demo Data Ready",
+              description: "Flex Aura sample catalog and order records loaded.",
+            })
+          }}
           title="Reset sample orders, custom orders, products, and categories to defaults"
           className="text-muted-foreground hover:text-foreground"
         >

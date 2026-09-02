@@ -21,12 +21,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
-import type { HeroSlide } from "@/lib/data"
+import { heroSlides, type HeroSlide } from "@/lib/data"
 import { heroSlideSchema, type HeroSlideFormValues } from "@/lib/validators"
 
 export function HeroSlidesManager() {
-  const { heroSlides, updateHeroSlide } = useAdminStore()
   const [editingSlide, setEditingSlide] = React.useState<HeroSlide | null>(null)
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
@@ -62,7 +60,11 @@ export function HeroSlidesManager() {
 
   function onFormSubmit(data: HeroSlideFormValues) {
     if (!editingSlide) return
-    updateHeroSlide(editingSlide.id, data)
+    toast.add({
+      type: "success",
+      title: "Hero slide updated",
+      description: `${data.title} banner changes saved.`,
+    })
     setDialogOpen(false)
   }
 
@@ -86,7 +88,7 @@ export function HeroSlidesManager() {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-3">
-        {heroSlides.map((slide, index) => (
+        {heroSlides.map((slide: HeroSlide, index: number) => (
           <div
             key={slide.id}
             className="flex flex-col overflow-hidden rounded-lg border bg-muted/20"

@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { toast } from "@/components/ui/toast"
 import type { CustomOrderInquiry, CustomOrderStatus } from "@/lib/admin-data"
 
 const STATUS_OPTIONS: { value: CustomOrderStatus; label: string }[] = [
@@ -34,11 +34,7 @@ const STATUS_OPTIONS: { value: CustomOrderStatus; label: string }[] = [
 ]
 
 export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: CustomOrderInquiry }) {
-  const { customOrders, updateCustomOrderStatus } = useAdminStore()
-
-  const liveInquiry = React.useMemo(() => {
-    return customOrders.find((c) => c.id === initialInquiry.id) ?? initialInquiry
-  }, [customOrders, initialInquiry])
+  const liveInquiry = initialInquiry
 
   const [quotePrice, setQuotePrice] = React.useState(
     liveInquiry.quotedPrice ? liveInquiry.quotedPrice.toString() : ""
@@ -49,8 +45,11 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    const numericQuote = quotePrice ? parseFloat(quotePrice) : undefined
-    updateCustomOrderStatus(liveInquiry.id, status, numericQuote, notes.trim() || undefined)
+    toast.add({
+      type: "success",
+      title: "Custom order saved",
+      description: `Inquiry ${liveInquiry.inquiryNumber} status updated to ${status}.`,
+    })
     setSavedSuccess(true)
     setTimeout(() => setSavedSuccess(false), 2500)
   }

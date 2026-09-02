@@ -25,14 +25,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
 import { CategoryDialog } from "@/components/admin/categories/category-dialog"
 import { CategoryDeleteDialog } from "@/components/admin/categories/category-delete-dialog"
 import { DataPagination } from "@/components/admin/common/data-pagination"
-import type { AdminCategory } from "@/lib/admin-data"
+import { initialCategories, type AdminCategory } from "@/lib/admin-data"
+import { products, type Product } from "@/lib/data"
 
 export function CategoryTable() {
-  const { categories, products } = useAdminStore()
+  const categories: AdminCategory[] = initialCategories
   const [search, setSearch] = React.useState("")
   const [featuredFilter, setFeaturedFilter] = React.useState<"all" | "featured">("all")
   const [page, setPage] = React.useState(1)
@@ -45,13 +45,13 @@ export function CategoryTable() {
   // Calculate matching products count for each category
   const getProductCount = React.useCallback(
     (cat: AdminCategory) => {
-      return products.filter((p) =>
-        p.tags.some((pt) =>
-          cat.tags.some((ct) => ct.toLowerCase() === pt.toLowerCase())
+      return products.filter((p: Product) =>
+        p.tags.some((pt: string) =>
+          cat.tags.some((ct: string) => ct.toLowerCase() === pt.toLowerCase())
         )
       ).length
     },
-    [products]
+    []
   )
 
   const filtered = React.useMemo(() => {

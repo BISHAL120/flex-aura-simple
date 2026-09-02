@@ -19,7 +19,8 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { products } from "@/lib/data"
+import { initialCategories, initialOrders, initialCustomOrders } from "@/lib/admin-data"
 
 export const ADMIN_NAV_ITEMS = [
   {
@@ -80,7 +81,9 @@ export function AdminSidebar({
   onNavigate?: () => void
 }) {
   const pathname = usePathname()
-  const { products, categories, orders, customOrders } = useAdminStore()
+  const categories = initialCategories
+  const orders = initialOrders
+  const customOrders = initialCustomOrders
 
   const pendingOrdersCount = orders.filter(
     (o) => o.status === "pending" || o.status === "in-production"
@@ -172,8 +175,8 @@ export function AdminSidebar({
                       isActive
                         ? "bg-primary-foreground/20 text-primary-foreground"
                         : item.badgeKey === "newCustomOrders" || item.badgeKey === "pendingOrders"
-                        ? "bg-primary/10 text-primary font-bold"
-                        : "bg-muted text-muted-foreground"
+                          ? "bg-primary/10 text-primary font-bold"
+                          : "bg-muted text-muted-foreground"
                     )}
                   >
                     {badgeValue}
@@ -216,14 +219,18 @@ export function AdminSidebar({
       {/* Footer Profile / Store Health */}
       <div className="border-t p-3">
         <div className="flex items-center justify-between rounded-lg border bg-muted/30 p-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="relative flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="relative flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
               <ShieldCheckIcon className="size-4" />
               <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-emerald-500 ring-2 ring-background" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold">Admin Panel</span>
-              <span className="text-[10px] text-muted-foreground">Laser Cutter Online</span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-semibold truncate">
+                User Name Here
+              </span>
+              <span className="text-[10px] text-muted-foreground truncate">
+                User email here
+              </span>
             </div>
           </div>
         </div>

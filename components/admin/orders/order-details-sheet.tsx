@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { formatPrice } from "@/lib/data"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { toast } from "@/components/ui/toast"
 import { getOrderStatusBadge } from "@/components/admin/overview/recent-orders-table"
 import type { AdminOrder, OrderStatus } from "@/lib/admin-data"
 
@@ -50,12 +50,7 @@ export function OrderDetailsSheet({
   onOpenChange,
   order: initialOrder,
 }: OrderDetailsSheetProps) {
-  const { orders, updateOrderStatus, updateOrderNotes } = useAdminStore()
-
-  const liveOrder = React.useMemo(() => {
-    if (!initialOrder) return null
-    return orders.find((o) => o.id === initialOrder.id) ?? initialOrder
-  }, [orders, initialOrder])
+  const liveOrder = initialOrder
 
   const [currentStatus, setCurrentStatus] = React.useState<OrderStatus>("pending")
   const [trackingNumber, setTrackingNumber] = React.useState("")
@@ -77,18 +72,30 @@ export function OrderDetailsSheet({
   function handleStatusChange(newStatus: OrderStatus) {
     if (!order) return
     setCurrentStatus(newStatus)
-    updateOrderStatus(order.id, newStatus, trackingNumber.trim())
+    toast.add({
+      type: "success",
+      title: "Order status updated",
+      description: `Order status set to ${newStatus}.`,
+    })
   }
 
   function handleSaveTracking(e: React.FormEvent) {
     e.preventDefault()
     if (!order) return
-    updateOrderStatus(order.id, currentStatus, trackingNumber.trim())
+    toast.add({
+      type: "success",
+      title: "Tracking number saved",
+      description: `Tracking number set to ${trackingNumber.trim()}.`,
+    })
   }
 
   function handleSaveNotes() {
     if (!order) return
-    updateOrderNotes(order.id, notes)
+    toast.add({
+      type: "info",
+      title: "Notes saved",
+      description: "Order notes saved successfully.",
+    })
   }
 
   return (

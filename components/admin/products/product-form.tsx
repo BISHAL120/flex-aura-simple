@@ -22,8 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
-import { formatPrice, type Product } from "@/lib/data"
+import { formatPrice, products, type Product } from "@/lib/data"
 import { productSchema, slugify, type ProductFormValues } from "@/lib/validators"
 
 const SAMPLE_IMAGE_OPTIONS = [
@@ -72,7 +71,6 @@ interface ProductFormProps {
 
 export function ProductForm({ product, mode }: ProductFormProps) {
   const router = useRouter()
-  const { products, addProduct, updateProduct } = useAdminStore()
   const [customImageUrl, setCustomImageUrl] = React.useState("")
   const [tagsInput, setTagsInput] = React.useState(
     product ? product.tags.join(", ") : "car, precision-cut"
@@ -183,18 +181,16 @@ export function ProductForm({ product, mode }: ProductFormProps) {
     ]
 
     if (mode === "edit" && product) {
-      updateProduct(product.id, {
-        ...data,
-        badge: finalBadge,
-        image: finalImage,
-        images: updatedImages.length > 0 ? updatedImages : [finalImage],
+      toast.add({
+        type: "success",
+        title: "Product updated",
+        description: `${data.name} changes saved.`,
       })
     } else {
-      addProduct({
-        ...data,
-        badge: finalBadge,
-        image: finalImage,
-        images: [finalImage],
+      toast.add({
+        type: "success",
+        title: "Product created",
+        description: `${data.name} published to catalog.`,
       })
     }
 

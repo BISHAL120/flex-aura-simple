@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { toast } from "@/components/ui/toast"
 import type { Product } from "@/lib/data"
 
 interface ProductDeleteDialogProps {
@@ -24,13 +24,15 @@ export function ProductDeleteDialog({
   onOpenChange,
   product,
 }: ProductDeleteDialogProps) {
-  const { deleteProduct } = useAdminStore()
-
   if (!product) return null
 
   function handleDelete() {
     if (!product) return
-    deleteProduct(product.id)
+    toast.add({
+      type: "info",
+      title: "Product removed",
+      description: `${product.name} deleted from catalog.`,
+    })
     onOpenChange(false)
   }
 

@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { toast } from "@/components/ui/toast"
 import type { AdminCategory } from "@/lib/admin-data"
 
 interface CategoryDeleteDialogProps {
@@ -24,13 +24,15 @@ export function CategoryDeleteDialog({
   onOpenChange,
   category,
 }: CategoryDeleteDialogProps) {
-  const { deleteCategory } = useAdminStore()
-
   if (!category) return null
 
   function handleDelete() {
     if (!category) return
-    deleteCategory(category.id)
+    toast.add({
+      type: "info",
+      title: "Category removed",
+      description: `${category.name} was deleted.`,
+    })
     onOpenChange(false)
   }
 

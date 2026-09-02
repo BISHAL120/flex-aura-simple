@@ -24,14 +24,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatPrice, type Product } from "@/lib/data"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { formatPrice, products, type Product } from "@/lib/data"
+import { initialCategories, type AdminCategory } from "@/lib/admin-data"
 import { ProductDialog } from "@/components/admin/products/product-dialog"
 import { ProductDeleteDialog } from "@/components/admin/products/product-delete-dialog"
 import { DataPagination } from "@/components/admin/common/data-pagination"
 
 export function ProductTable({ initialQuery = "" }: { initialQuery?: string }) {
-  const { products, categories } = useAdminStore()
+  const categories: AdminCategory[] = initialCategories
   const [search, setSearch] = React.useState(initialQuery)
   const [selectedCategory, setSelectedCategory] = React.useState<string>("All")
   const [selectedBadge, setSelectedBadge] = React.useState<string>("All")

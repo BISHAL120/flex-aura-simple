@@ -16,8 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatPrice } from "@/lib/data"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
-import type { OrderStatus } from "@/lib/admin-data"
+import { initialOrders, type OrderStatus, type AdminOrder } from "@/lib/admin-data"
 
 export function getOrderStatusBadge(status: OrderStatus) {
   switch (status) {
@@ -41,7 +40,7 @@ export function getOrderStatusBadge(status: OrderStatus) {
 }
 
 export function RecentOrdersTable() {
-  const { orders } = useAdminStore()
+  const orders: AdminOrder[] = initialOrders
   const recentOrders = React.useMemo(() => {
     return [...orders]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

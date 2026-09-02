@@ -29,11 +29,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { initialStoreSettings } from "@/lib/admin-data"
 import { storeSettingsSchema, type StoreSettingsFormValues } from "@/lib/validators"
 
 export function StoreSettingsForm() {
-  const { settings, updateSettings, resetToDefaults, hasHydrated } = useAdminStore()
+  const settings = initialStoreSettings
   const [resetDialogOpen, setResetDialogOpen] = React.useState(false)
 
   const {
@@ -51,18 +51,11 @@ export function StoreSettingsForm() {
   const watchedIntl = watch("enableInternationalShipping")
   const watchedMaint = watch("maintenanceMode")
 
-  // Re-sync form state upon hydration or store change (resolves H6)
-  React.useEffect(() => {
-    if (hasHydrated) {
-      reset(settings)
-    }
-  }, [hasHydrated, settings, reset])
-
   function onFormSubmit(data: StoreSettingsFormValues) {
-    updateSettings({
-      ...data,
-      freeShippingThreshold: Number.isFinite(data.freeShippingThreshold) ? data.freeShippingThreshold : 50,
-      flatShippingFee: Number.isFinite(data.flatShippingFee) ? data.flatShippingFee : 9.99,
+    toast.add({
+      type: "success",
+      title: "Settings saved",
+      description: "Store configuration has been updated.",
     })
   }
 
@@ -75,7 +68,12 @@ export function StoreSettingsForm() {
   }
 
   function handleConfirmReset() {
-    resetToDefaults()
+    reset(initialStoreSettings)
+    toast.add({
+      type: "info",
+      title: "Settings reset",
+      description: "Store settings reset to defaults.",
+    })
     setResetDialogOpen(false)
   }
 

@@ -5,28 +5,17 @@ import { useParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeftIcon } from "lucide-react"
 
-import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { products } from "@/lib/data"
 import { ProductForm } from "@/components/admin/products/product-form"
 
 export default function AdminEditProductPage() {
   const params = useParams()
   const id = params?.id as string
-  const { products, hasHydrated } = useAdminStore()
 
   const product = React.useMemo(() => {
     return products.find((p) => p.id === id || p.slug === id)
-  }, [products, id])
-
-  if (!hasHydrated) {
-    return (
-      <div className="flex flex-col gap-6 py-6 animate-pulse">
-        <Skeleton className="h-8 w-48 rounded" />
-        <Skeleton className="h-96 w-full rounded-lg" />
-      </div>
-    )
-  }
+  }, [id])
 
   if (!product) {
     return (

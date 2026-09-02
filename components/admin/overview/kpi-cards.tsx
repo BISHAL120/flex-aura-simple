@@ -12,18 +12,19 @@ import {
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/data"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { initialOrders, initialCustomOrders, type AdminOrder, type CustomOrderInquiry } from "@/lib/admin-data"
 
 export function KPICards() {
-  const { orders, customOrders } = useAdminStore()
+  const orders: AdminOrder[] = initialOrders
+  const customOrders: CustomOrderInquiry[] = initialCustomOrders
 
   // Calculate live dynamic metrics from store
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0)
+  const totalRevenue = orders.reduce((sum: number, order: AdminOrder) => sum + order.total, 0)
   const averageOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0
   const pendingProduction = orders.filter(
-    (o) => o.status === "in-production" || o.status === "powder-coating" || o.status === "processing"
+    (o: AdminOrder) => o.status === "in-production" || o.status === "powder-coating" || o.status === "processing"
   ).length
-  const pendingCustomOrders = customOrders.filter((c) => c.status === "new" || c.status === "quoted").length
+  const pendingCustomOrders = customOrders.filter((c: CustomOrderInquiry) => c.status === "new" || c.status === "quoted").length
 
   const kpis = [
     {

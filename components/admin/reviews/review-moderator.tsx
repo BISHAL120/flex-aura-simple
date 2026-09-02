@@ -7,13 +7,11 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
 import { ReviewDeleteDialog } from "@/components/admin/reviews/review-delete-dialog"
 import { DataPagination } from "@/components/admin/common/data-pagination"
-import type { Review } from "@/lib/data"
+import { reviews, type Review } from "@/lib/data"
 
 export function ReviewModerator() {
-  const { reviews } = useAdminStore()
   const [search, setSearch] = React.useState("")
   const [ratingFilter, setRatingFilter] = React.useState<number | "all">("all")
   const [page, setPage] = React.useState(1)
@@ -23,10 +21,10 @@ export function ReviewModerator() {
 
   // Statistics
   const averageRating = (
-    reviews.reduce((sum, r) => sum + r.rating, 0) / (reviews.length || 1)
+    reviews.reduce((sum: number, r: Review) => sum + r.rating, 0) / (reviews.length || 1)
   ).toFixed(1)
-  const fiveStarsCount = reviews.filter((r) => r.rating === 5).length
-  const fourStarsCount = reviews.filter((r) => r.rating === 4).length
+  const fiveStarsCount = reviews.filter((r: Review) => r.rating === 5).length
+  const fourStarsCount = reviews.filter((r: Review) => r.rating === 4).length
 
   const filtered = React.useMemo(() => {
     let list = [...reviews]
@@ -174,7 +172,7 @@ export function ReviewModerator() {
           paginatedReviews.map((review) => {
             const initials = review.name
               .split(" ")
-              .map((p) => p[0])
+              .map((p: string) => p[0])
               .join("")
               .slice(0, 2)
 

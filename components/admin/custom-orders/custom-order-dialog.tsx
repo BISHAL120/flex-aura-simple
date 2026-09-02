@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { useAdminStore } from "@/components/admin/admin-store-provider"
+import { toast } from "@/components/ui/toast"
 import type { CustomOrderInquiry, CustomOrderStatus } from "@/lib/admin-data"
 
 const STATUS_OPTIONS: { value: CustomOrderStatus; label: string }[] = [
@@ -51,8 +51,6 @@ export function CustomOrderDialog({
   onOpenChange,
   inquiry,
 }: CustomOrderDialogProps) {
-  const { updateCustomOrderStatus } = useAdminStore()
-
   const [quotePrice, setQuotePrice] = React.useState("")
   const [status, setStatus] = React.useState<CustomOrderStatus>("new")
   const [notes, setNotes] = React.useState("")
@@ -72,8 +70,11 @@ export function CustomOrderDialog({
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
     if (!inquiry) return
-    const numericQuote = quotePrice ? parseFloat(quotePrice) : undefined
-    updateCustomOrderStatus(inquiry.id, status, numericQuote, notes.trim() || undefined)
+    toast.add({
+      type: "success",
+      title: "Custom order updated",
+      description: `Inquiry ${inquiry.inquiryNumber} status updated to ${status}.`,
+    })
     onOpenChange(false)
   }
 
