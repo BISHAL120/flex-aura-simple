@@ -85,7 +85,7 @@ export const auth = betterAuth({
         type: 'string[]',
         input: false
       },
-      isActive: {
+      isBanned: {
         type: 'boolean',
         input: false,
       },

@@ -15,12 +15,14 @@ import {
   ExternalLinkIcon,
   StoreIcon,
   ShieldCheckIcon,
+  UsersIcon,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { products } from "@/lib/data"
 import { initialCategories, initialOrders, initialCustomOrders } from "@/lib/admin-data"
+import { initialUsers } from "@/lib/admin-users-data"
 
 export const ADMIN_NAV_ITEMS = [
   {
@@ -66,6 +68,12 @@ export const ADMIN_NAV_ITEMS = [
     badgeKey: null,
   },
   {
+    title: "Users",
+    href: "/admin/users",
+    icon: UsersIcon,
+    badgeKey: "users",
+  },
+  {
     title: "Store Settings",
     href: "/admin/settings",
     icon: SettingsIcon,
@@ -98,6 +106,7 @@ export function AdminSidebar({
     if (key === "categories") return categories.length
     if (key === "pendingOrders") return pendingOrdersCount > 0 ? pendingOrdersCount : null
     if (key === "newCustomOrders") return newCustomOrdersCount > 0 ? newCustomOrdersCount : null
+    if (key === "users") return initialUsers.length
     return null
   }
 

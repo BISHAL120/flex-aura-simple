@@ -5,8 +5,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
+    --font-heading: var(--font-heading);
     --font-sans: var(--font-sans);
+    --font-mono: var(--font-mono);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -128,7 +129,11 @@
     }
   html {
     @apply font-sans;
-    }
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
 @layer utilities {
@@ -144,4 +149,92 @@
   .radius-lg {
     border-radius: var(--radius-lg);
   }
+}
+
+/* ==========================================================================
+   Admin Content Typography Scaling & Enhanced Readability
+   Targeted specifically to the admin main content area (excluding the sidebar)
+   ========================================================================== */
+[data-admin-content],
+.admin-content {
+  /* Scale font-size CSS variables used by Tailwind v4 */
+  --text-2xs: 0.8125rem;  /* 13px */
+  --text-xs: 0.90625rem;  /* 14.5px (scaled from 12px) */
+  --text-xs--line-height: 1.45rem;
+  --text-sm: 1.0rem;      /* 16px (scaled from 14px) */
+  --text-sm--line-height: 1.55rem;
+  --text-base: 1.125rem;  /* 18px (scaled from 16px) */
+  --text-base--line-height: 1.65rem;
+  --text-lg: 1.25rem;     /* 20px (scaled from 18px) */
+  --text-xl: 1.4375rem;   /* 23px (scaled from 20px) */
+  --text-2xl: 1.75rem;    /* 28px (scaled from 24px) */
+  --text-3xl: 2.125rem;   /* 34px (scaled from 30px) */
+
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+/* Bump tiny hardcoded arbitrary sizes across admin content */
+[data-admin-content] .text-\[10px\],
+.admin-content .text-\[10px\] {
+  font-size: 12.5px !important;
+  line-height: 1.35 !important;
+}
+
+[data-admin-content] .text-\[11px\],
+.admin-content .text-\[11px\] {
+  font-size: 13.5px !important;
+  line-height: 1.4 !important;
+}
+
+/* Improve table readability in admin content */
+[data-admin-content] table th,
+.admin-content table th {
+  font-size: 0.875rem; /* 14px */
+  letter-spacing: 0.025em;
+  font-weight: 600;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+[data-admin-content] table td,
+.admin-content table td {
+  font-size: 0.9375rem; /* 15px */
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+/* Form inputs & labels readability in admin content */
+[data-admin-content] label,
+.admin-content label {
+  font-size: 0.90625rem; /* 14.5px */
+  font-weight: 500;
+}
+
+[data-admin-content] input,
+[data-admin-content] select,
+[data-admin-content] textarea,
+.admin-content input,
+.admin-content select,
+.admin-content textarea {
+  font-size: 0.9375rem; /* 15px */
+}
+
+/* Badges readability in admin content */
+[data-admin-content] [data-slot="badge"],
+.admin-content [data-slot="badge"],
+[data-admin-content] .badge {
+  font-size: 0.8125rem; /* 13px */
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+/* Explicitly preserve standard compact font scale on the Admin Sidebar */
+aside,
+[data-slot="sidebar"] {
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  font-size: 0.875rem;
 }
