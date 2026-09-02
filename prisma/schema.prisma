@@ -58,6 +58,7 @@ model Session {
 
 model Account {
   id                    String    @id @map("_id")
+  issuer                String?
   accountId             String
   providerId            String
   userId                String

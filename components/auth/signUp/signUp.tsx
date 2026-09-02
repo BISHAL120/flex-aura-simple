@@ -30,11 +30,11 @@ const formSchema = z
     email: z.string().min(1, "Email is required").email({ message: "Invalid email address" }),
     password: z
       .string()
-      .min(6, { message: "Password must be at least 6 characters" })
+      .min(8, { message: "Password must be at least 8 characters" })
       .max(50, { message: "Password must be at most 50 characters" }),
     confirmPassword: z
       .string()
-      .min(6, { message: "Confirm password must be at least 6 characters" })
+      .min(8, { message: "Confirm password must be at least 8 characters" })
       .max(50, { message: "Confirm password must be at most 50 characters" }),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -44,7 +44,7 @@ const formSchema = z
 
 type SignUpFormValues = z.infer<typeof formSchema>
 
-export function SignupForm({ joinAs }: { joinAs: string | null }) {
+export function SignupForm() {
   const [loading, setLoading] = React.useState(false)
   const [showPassword, setShowPassword] = React.useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false)
@@ -72,8 +72,10 @@ export function SignupForm({ joinAs }: { joinAs: string | null }) {
         name: values.name,
         email: values.email,
         password: values.password,
-        callbackURL: "/email-verified",
+        // callbackURL: "/verify-email",
       })
+
+      console.log("Sign Up Error: ", error);
 
       if (error) {
         setLoading(false)
@@ -87,7 +89,7 @@ export function SignupForm({ joinAs }: { joinAs: string | null }) {
       showSuccess({
         message: "Account created successfully! Welcome to Flex Aura.",
       })
-      router.push(joinAs ? `/sign-in?joinas=${joinAs}` : "/sign-in")
+      router.push("/admin")
     } catch (err: unknown) {
       setLoading(false)
       const errorMsg = err instanceof Error ? err.message : "Failed to create account."
@@ -212,7 +214,7 @@ export function SignupForm({ joinAs }: { joinAs: string | null }) {
             <FieldDescription className="text-center text-xs pt-2">
               Already have an account?{" "}
               <Link
-                href={joinAs ? `/sign-in?joinas=${joinAs}` : "/sign-in"}
+                href={"/sign-in"}
                 className="text-primary font-medium hover:underline underline-offset-4"
               >
                 Sign in

@@ -32,7 +32,7 @@ export async function proxy(request: NextRequest) {
     };
 
     // Authentication routes to redirect if logged in
-    const authRoutes = ['/login', '/signup', '/forgot-password', '/reset-password', '/account-locked', '/verify-email'];
+    const authRoutes = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password', '/account-locked', '/verify-email'];
 
     // Check if current path is an auth route
     const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));

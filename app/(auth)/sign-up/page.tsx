@@ -5,13 +5,7 @@ export const metadata = {
   description: "Join Flex Aura to purchase precision laser-cut metal art, commission bespoke designs, and save your preferences.",
 }
 
-export default async function SignUpPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | undefined }>
-}) {
-  const params = await searchParams
-  const joinAs = params.joinas || null
+export default async function SignUpPage() {
 
-  return <SignupForm joinAs={joinAs} />
+  return <SignupForm />
 }

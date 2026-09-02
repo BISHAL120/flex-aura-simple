@@ -34,7 +34,7 @@ const formSchema = z.object({
 
 type SignInFormValues = z.infer<typeof formSchema>
 
-export function SignInForm({ joinAs }: { joinAs: string | null }) {
+export function SignInForm() {
   const [loading, setLoading] = React.useState(false)
   const [socialLoading, setSocialLoading] = React.useState(false)
   const [showPassword, setShowPassword] = React.useState(false)
@@ -185,7 +185,6 @@ export function SignInForm({ joinAs }: { joinAs: string | null }) {
                 setSocialLoading(true)
                 authClient.signIn.social({
                   provider: "google",
-                  additionalData: { joinas: joinAs },
                 })
               }}
             >
@@ -217,7 +216,7 @@ export function SignInForm({ joinAs }: { joinAs: string | null }) {
             <FieldDescription className="text-center text-xs pt-2">
               Don&apos;t have an account?{" "}
               <Link
-                href={joinAs ? `/sign-up?joinas=${joinAs}` : "/sign-up"}
+                href={"/sign-up"}
                 className="text-primary font-medium hover:underline underline-offset-4"
               >
                 Create an account

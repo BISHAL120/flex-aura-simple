@@ -5,13 +5,6 @@ export const metadata = {
   description: "Sign in to your Flex Aura account to view orders, track shipping, and manage custom metal art inquiries.",
 }
 
-export default async function SignInRoute({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | undefined }>
-}) {
-  const params = await searchParams
-  const joinAs = params.joinas || null
-
-  return <SignInForm joinAs={joinAs} />
+export default async function SignInRoute() {
+  return <SignInForm />
 }
