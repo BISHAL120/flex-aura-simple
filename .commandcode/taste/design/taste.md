@@ -1,6 +1,7 @@
 # Design
 
 - Prefers simple design and layout — "keep it simple" in terms of design. Confidence: 0.8
+- Wants UI actions/controls to be "proper" — polished and fully functional — built with the app's existing design-system components and conventions (e.g., the shared `Button` + `Spinner`) rather than a bare/unstyled icon stub. Expects loading/disabled states, real navigation (redirect + refresh), and error feedback via the existing toast API. Confidence: 0.55
 - Wants designs responsive across mobile, tablet, laptop, and large monitor screens, with a hamburger menu on mobile and proper navigation on all devices — repeatedly and explicitly asks that UI/UX be responsive "for all screen sizes". Confidence: 0.95
 - Prefers page content in a centered max-width container (mx-auto), e.g., a 1500px cap with horizontal padding; explicitly flags full-bleed sections (like the hero carousel) that stretch full-width on wide/large monitors and asks for them to be capped and centered with `mx-auto`. Confidence: 0.9
 - Prefers subtle border radius on cards and controls — visibly rounded but restrained; explicitly rejects overly large radii ("too much") and fully flat/square corners ("don't fully remove"). Confidence: 0.9

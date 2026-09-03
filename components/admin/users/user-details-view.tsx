@@ -7,6 +7,7 @@ import {
   ArrowLeftIcon,
   BanIcon,
   CheckCircle2Icon,
+  CheckIcon,
   ClockIcon,
   CopyIcon,
   GlobeIcon,
@@ -14,16 +15,14 @@ import {
   LaptopIcon,
   Loader2Icon,
   MailCheckIcon,
-  MailIcon,
   MapPinIcon,
   PencilIcon,
   PhoneIcon,
-  ShieldAlertIcon,
   ShieldCheckIcon,
   SmartphoneIcon,
   Trash2Icon,
   UserCheckIcon,
-  UserIcon,
+  XIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -43,7 +42,8 @@ import {
 import { UserBanDialog } from "@/components/admin/users/user-ban-dialog"
 import { UserRoleDialog } from "@/components/admin/users/user-role-dialog"
 import type { AdminUser, UserRole } from "@/lib/admin-users-data"
-import { toast } from "@/components/ui/toast"
+import { showError, showSuccess } from "@/lib/toast"
+import { patchUser, revokeSession } from "@/lib/data-layer/admin/users/user-actions"
 
 interface UserDetailsViewProps {
   initialUser: AdminUser
@@ -72,6 +72,11 @@ export function UserDetailsView({ initialUser }: UserDetailsViewProps) {
     bio: user.bio || "",
   })
 
+  // Inline field editing state (profile card)
+  const [editingField, setEditingField] = React.useState<"phoneNumber" | "location" | null>(null)
+  const [fieldValue, setFieldValue] = React.useState("")
+  const [fieldSaving, setFieldSaving] = React.useState(false)
+
   // Revoke session loading state (session ID)
   const [revokingSessionId, setRevokingSessionId] = React.useState<string | null>(null)
 
@@ -80,128 +85,173 @@ export function UserDetailsView({ initialUser }: UserDetailsViewProps) {
     const nextBanned = !targetUser.isBanned
     setBanLoading(true)
 
-    toast.add({
-      type: "info",
-      title: "Updating Account Status",
-      description: `${nextBanned ? "Banning" : "Unbanning"} user ${targetUser.name}...`,
-    })
+    try {
+      await patchUser(targetUser.id, { isBanned: nextBanned })
 
-    // Simulate async server call
-    await new Promise((resolve) => setTimeout(resolve, 800))
+      setUser((prev) => ({ ...prev, isBanned: nextBanned, updatedAt: new Date().toISOString() }))
 
-    setUser((prev) => ({
-      ...prev,
-      isBanned: nextBanned,
-      updatedAt: new Date().toISOString(),
-    }))
+      showSuccess({
+        title: nextBanned ? "User Account Banned" : "User Account Restored",
+        message: `${targetUser.name} (${targetUser.email}) has been ${
+          nextBanned ? "banned from accessing the store" : "unbanned and restored"
+        }.`,
+      })
 
-    toast.add({
-      type: "success",
-      title: nextBanned ? "User Account Banned" : "User Account Restored",
-      description: `${targetUser.name} (${targetUser.email}) has been ${
-        nextBanned ? "banned from accessing the store" : "unbanned and restored"
-      }.`,
-    })
-
-    setBanLoading(false)
-    setBanDialogOpen(false)
+      router.refresh()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to update account status",
+      })
+    } finally {
+      setBanLoading(false)
+      setBanDialogOpen(false)
+    }
   }
 
   async function handleSaveRoles(userId: string, newRoles: UserRole[]) {
     setRoleLoading(true)
 
-    toast.add({
-      type: "info",
-      title: "Updating Roles",
-      description: "Applying new permissions...",
-    })
+    try {
+      await patchUser(userId, { role: newRoles })
 
-    await new Promise((resolve) => setTimeout(resolve, 750))
+      setUser((prev) => ({ ...prev, role: newRoles, updatedAt: new Date().toISOString() }))
 
-    setUser((prev) => ({
-      ...prev,
-      role: newRoles,
-      updatedAt: new Date().toISOString(),
-    }))
+      showSuccess({
+        title: "Roles Saved",
+        message: `User roles set to [${newRoles.join(", ")}].`,
+      })
 
-    toast.add({
-      type: "success",
-      title: "Roles Saved",
-      description: `User roles set to [${newRoles.join(", ")}].`,
-    })
-
-    setRoleLoading(false)
-    setRoleDialogOpen(false)
+      router.refresh()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to update user roles",
+      })
+    } finally {
+      setRoleLoading(false)
+      setRoleDialogOpen(false)
+    }
   }
 
   async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault()
     setEditProfileLoading(true)
 
-    toast.add({
-      type: "info",
-      title: "Updating Profile",
-      description: "Saving user contact and personal information...",
-    })
+    try {
+      await patchUser(user.id, {
+        firstName: editForm.firstName,
+        lastName: editForm.lastName,
+        phoneNumber: editForm.phoneNumber,
+        location: editForm.location,
+        bio: editForm.bio,
+      })
 
-    await new Promise((resolve) => setTimeout(resolve, 800))
+      const updatedName = `${editForm.firstName} ${editForm.lastName}`.trim()
 
-    const updatedName = `${editForm.firstName} ${editForm.lastName}`.trim()
+      setUser((prev) => ({
+        ...prev,
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim() || null,
+        name: updatedName,
+        phoneNumber: editForm.phoneNumber.trim() || null,
+        location: editForm.location.trim() || null,
+        bio: editForm.bio.trim() || null,
+        updatedAt: new Date().toISOString(),
+      }))
 
-    setUser((prev) => ({
-      ...prev,
-      firstName: editForm.firstName.trim(),
-      lastName: editForm.lastName.trim() || null,
-      name: updatedName,
-      phoneNumber: editForm.phoneNumber.trim() || null,
-      location: editForm.location.trim() || null,
-      bio: editForm.bio.trim() || null,
-      updatedAt: new Date().toISOString(),
-    }))
+      showSuccess({
+        title: "Profile Updated",
+        message: "User details have been saved successfully.",
+      })
 
-    toast.add({
-      type: "success",
-      title: "Profile Updated",
-      description: "User details have been saved successfully.",
-    })
-
-    setEditProfileLoading(false)
-    setEditProfileOpen(false)
+      router.refresh()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to save user profile",
+      })
+    } finally {
+      setEditProfileLoading(false)
+      setEditProfileOpen(false)
+    }
   }
 
   async function handleRevokeSession(sessionId: string) {
     setRevokingSessionId(sessionId)
 
-    toast.add({
-      type: "info",
-      title: "Revoking Session",
-      description: "Terminating device login session...",
-    })
+    try {
+      await revokeSession(user.id, sessionId)
 
-    await new Promise((resolve) => setTimeout(resolve, 700))
+      setUser((prev) => ({
+        ...prev,
+        sessions: prev.sessions.filter((s) => s.id !== sessionId),
+        updatedAt: new Date().toISOString(),
+      }))
 
-    setUser((prev) => ({
-      ...prev,
-      sessions: prev.sessions.filter((s) => s.id !== sessionId),
-      updatedAt: new Date().toISOString(),
-    }))
+      showSuccess({
+        title: "Session Terminated",
+        message: "The authentication session was successfully revoked.",
+      })
 
-    toast.add({
-      type: "success",
-      title: "Session Terminated",
-      description: "The authentication session was successfully revoked.",
-    })
-
-    setRevokingSessionId(null)
+      router.refresh()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to revoke session",
+      })
+    } finally {
+      setRevokingSessionId(null)
+    }
   }
 
   function handleCopyId() {
     navigator.clipboard.writeText(user.id)
-    toast.add({
-      type: "info",
+    showSuccess({
       title: "Copied to Clipboard",
-      description: `User ID ${user.id} copied.`,
+      message: `User ID ${user.id} copied.`,
     })
+  }
+
+  // Inline field editing handlers
+  function startEditingField(field: "phoneNumber" | "location") {
+    setEditingField(field)
+    setFieldValue(field === "phoneNumber" ? user.phoneNumber || "" : user.location || "")
+  }
+
+  function cancelEditingField() {
+    setEditingField(null)
+    setFieldValue("")
+  }
+
+  async function handleSaveField() {
+    if (!editingField || fieldSaving) return
+    setFieldSaving(true)
+
+    try {
+      await patchUser(user.id, {
+        [editingField]: fieldValue,
+      })
+
+      setUser((prev) => ({
+        ...prev,
+        [editingField]: fieldValue.trim() || null,
+        updatedAt: new Date().toISOString(),
+      }))
+
+      showSuccess({
+        title: editingField === "phoneNumber" ? "Phone Updated" : "Location Updated",
+        message:
+          editingField === "phoneNumber"
+            ? "The phone number has been updated successfully."
+            : "The location has been updated successfully.",
+      })
+
+      router.refresh()
+      cancelEditingField()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to update user profile",
+      })
+    } finally {
+      setFieldSaving(false)
+    }
   }
 
   function getInitials(name: string) {
@@ -276,6 +326,7 @@ export function UserDetailsView({ initialUser }: UserDetailsViewProps) {
             size="sm"
             disabled={editProfileLoading || banLoading}
             onClick={() => {
+              cancelEditingField()
               setEditForm({
                 firstName: user.firstName,
                 lastName: user.lastName || "",
@@ -364,23 +415,149 @@ export function UserDetailsView({ initialUser }: UserDetailsViewProps) {
               )}
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <PhoneIcon className="size-3.5" /> Phone
-                  </span>
-                  <span className="font-medium text-foreground">
-                    {user.phoneNumber || "Not set"}
-                  </span>
-                </div>
+                {/* Phone - inline editable */}
+                {editingField === "phoneNumber" ? (
+                  <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <PhoneIcon className="size-3.5" /> Phone
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Input
+                        autoFocus
+                        value={fieldValue}
+                        onChange={(e) => setFieldValue(e.target.value)}
+                        disabled={fieldSaving}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault()
+                            handleSaveField()
+                          }
+                          if (e.key === "Escape") cancelEditingField()
+                        }}
+                        aria-label="Edit phone number"
+                        className="h-7 w-36 text-[11px]"
+                      />
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        variant="ghost"
+                        disabled={fieldSaving}
+                        onClick={handleSaveField}
+                        title="Save phone number"
+                        aria-label="Save phone number"
+                      >
+                        {fieldSaving ? (
+                          <Loader2Icon className="size-3.5 animate-spin" />
+                        ) : (
+                          <CheckIcon className="size-3.5" />
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        variant="ghost"
+                        disabled={fieldSaving}
+                        onClick={cancelEditingField}
+                        title="Cancel editing"
+                        aria-label="Cancel editing phone number"
+                      >
+                        <XIcon className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="group/row flex items-center justify-between gap-2 text-muted-foreground">
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <PhoneIcon className="size-3.5" /> Phone
+                    </span>
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-medium text-foreground truncate">
+                        {user.phoneNumber || "Not set"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => startEditingField("phoneNumber")}
+                        className="text-muted-foreground/50 hover:text-foreground transition-colors opacity-60 sm:opacity-0 sm:group-hover/row:opacity-100 focus-visible:opacity-100"
+                        title="Edit phone number"
+                        aria-label="Edit phone number"
+                      >
+                        <PencilIcon className="size-3" />
+                      </button>
+                    </span>
+                  </div>
+                )}
 
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <MapPinIcon className="size-3.5" /> Location
-                  </span>
-                  <span className="font-medium text-foreground text-right truncate max-w-[170px]">
-                    {user.location || "Not set"}
-                  </span>
-                </div>
+                {/* Location - inline editable */}
+                {editingField === "location" ? (
+                  <div className="flex items-center justify-between gap-2 text-muted-foreground">
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <MapPinIcon className="size-3.5" /> Location
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Input
+                        autoFocus
+                        value={fieldValue}
+                        onChange={(e) => setFieldValue(e.target.value)}
+                        disabled={fieldSaving}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault()
+                            handleSaveField()
+                          }
+                          if (e.key === "Escape") cancelEditingField()
+                        }}
+                        aria-label="Edit location"
+                        className="h-7 w-36 text-[11px]"
+                      />
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        variant="ghost"
+                        disabled={fieldSaving}
+                        onClick={handleSaveField}
+                        title="Save location"
+                        aria-label="Save location"
+                      >
+                        {fieldSaving ? (
+                          <Loader2Icon className="size-3.5 animate-spin" />
+                        ) : (
+                          <CheckIcon className="size-3.5" />
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon-xs"
+                        variant="ghost"
+                        disabled={fieldSaving}
+                        onClick={cancelEditingField}
+                        title="Cancel editing"
+                        aria-label="Cancel editing location"
+                      >
+                        <XIcon className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="group/row flex items-center justify-between gap-2 text-muted-foreground">
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <MapPinIcon className="size-3.5" /> Location
+                    </span>
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-medium text-foreground text-right truncate max-w-[170px]">
+                        {user.location || "Not set"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => startEditingField("location")}
+                        className="text-muted-foreground/50 hover:text-foreground transition-colors opacity-60 sm:opacity-0 sm:group-hover/row:opacity-100 focus-visible:opacity-100"
+                        title="Edit location"
+                        aria-label="Edit location"
+                      >
+                        <PencilIcon className="size-3" />
+                      </button>
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span className="flex items-center gap-1.5">

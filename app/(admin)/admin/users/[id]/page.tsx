@@ -1,25 +1,30 @@
-"use client"
-
 import * as React from "react"
-import { useParams } from "next/navigation"
+import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeftIcon, UserXIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { initialUsers } from "@/lib/admin-users-data"
 import { UserDetailsView } from "@/components/admin/users/user-details-view"
+import { getUserById, getUserByEmail } from "@/lib/data-layer/admin/users/user-data-layer"
+import { mapUserToAdminUser } from "@/lib/data-layer/admin/users/user-mapper"
 
-export default function AdminUserDetailsPage() {
-  const params = useParams()
-  const id = params?.id as string
+export const metadata: Metadata = {
+  title: "User Details — Flex Aura Admin",
+  description: "View and manage a registered user account.",
+}
 
-  const user = React.useMemo(() => {
-    return initialUsers.find(
-      (u) => u.id === id || u.email.toLowerCase() === id?.toLowerCase()
-    )
-  }, [id])
+export default async function AdminUserDetailsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
 
-  if (!user) {
+  // The details URL uses the user ID, but links can also arrive by email.
+  // Fall back to an email lookup so both link styles keep working.
+  const dbUser = (await getUserById(id)) ?? (await getUserByEmail(id))
+
+  if (!dbUser) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
         <div className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
@@ -44,5 +49,5 @@ export default function AdminUserDetailsPage() {
     )
   }
 
-  return <UserDetailsView key={user.id} initialUser={user} />
+  return <UserDetailsView key={dbUser.id} initialUser={mapUserToAdminUser(dbUser)} />
 }

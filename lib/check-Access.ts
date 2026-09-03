@@ -5,8 +5,8 @@ import { getServerSession } from "./get-session";
 export async function isAdmin() {
   const session = await getServerSession();
   const user = session?.user;
-  if (!user?.role?.includes("ADMIN") && user?.isBanned) {
-    redirect("/")
+  if (!user?.role?.includes("ADMIN") || user?.isBanned) {
+    redirect("/unauthorize")
   }
   return user;
 }

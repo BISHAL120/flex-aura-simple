@@ -2,9 +2,9 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   SearchIcon,
-  ShieldAlertIcon,
   ShieldCheckIcon,
   BanIcon,
   CheckCircle2Icon,
@@ -39,8 +39,8 @@ import {
 import { DataPagination } from "@/components/admin/common/data-pagination"
 import { UserBanDialog } from "@/components/admin/users/user-ban-dialog"
 import { UserRoleDialog } from "@/components/admin/users/user-role-dialog"
-import { initialUsers, type AdminUser, type UserRole } from "@/lib/admin-users-data"
-import { toast } from "@/components/ui/toast"
+import type { AdminUser, UserRole } from "@/lib/admin-users-data"
+import { showError, showSuccess } from "@/lib/toast"
 
 const ROLE_TABS = [
   { label: "All Roles", value: "ALL" },
@@ -49,20 +49,67 @@ const ROLE_TABS = [
   { label: "Users", value: "USER" },
 ]
 
-const STATUS_FILTERS = [
-  { label: "All Statuses", value: "all" },
-  { label: "Active Only", value: "active" },
-  { label: "Banned Only", value: "banned" },
-  { label: "Verified Only", value: "verified" },
-]
+const SEARCH_DEBOUNCE_MS = 500
+const DEFAULT_PAGE_SIZE = 12
 
-export function UserTable() {
-  const [users, setUsers] = React.useState<AdminUser[]>(initialUsers)
-  const [search, setSearch] = React.useState("")
-  const [roleFilter, setRoleFilter] = React.useState<string>("ALL")
-  const [statusFilter, setStatusFilter] = React.useState<string>("all")
-  const [page, setPage] = React.useState(1)
-  const [pageSize, setPageSize] = React.useState(6)
+interface UserTableProps {
+  users: AdminUser[]
+  total: number
+  totalPages: number
+  activeCount: number
+  bannedCount: number
+  search: string
+  role: string
+  page: number
+  pageSize: number
+}
+
+type CommittedState = {
+  search: string
+  role: string
+  page: number
+  pageSize: number
+}
+
+function buildQuery(state: CommittedState) {
+  const params = new URLSearchParams()
+  if (state.search) params.set("search", state.search)
+  if (state.role) params.set("role", state.role)
+  if (state.page !== 1) params.set("page", String(state.page))
+  if (state.pageSize !== DEFAULT_PAGE_SIZE) params.set("per_page", String(state.pageSize))
+  const qs = params.toString()
+  return qs ? `/admin/users?${qs}` : "/admin/users"
+}
+
+export function UserTable({
+  users,
+  total,
+  totalPages,
+  activeCount,
+  bannedCount,
+  search,
+  role,
+  page,
+  pageSize,
+}: UserTableProps) {
+  const router = useRouter()
+
+  // Local input state so typing feels instant; the URL is the source of truth.
+  const [searchInput, setSearchInput] = React.useState(search)
+
+  // While the input is focused, the typed value is authoritative. The URL is
+  // only a delayed echo of what was typed, so syncing URL -> input mid-typing
+  // (e.g. a slow navigation response landing after the user has kept typing)
+  // would revert, truncate, or clear the value. Only sync URL -> input when
+  // the input is not focused: back/forward navigation, reloads, clamping.
+  const searchFocusedRef = React.useRef(false)
+
+  // Last committed URL state. Every navigation merges onto this ref so a slow
+  // debounce or a queued action can never drop a filter from the URL.
+  const committedRef = React.useRef<CommittedState>({ search, role, page, pageSize })
+
+  // Pending page size while DataPagination fires both size and page callbacks
+  const pendingSizeRef = React.useRef<number | null>(null)
 
   // Dialog states
   const [selectedUserForBan, setSelectedUserForBan] = React.useState<AdminUser | null>(null)
@@ -76,56 +123,73 @@ export function UserTable() {
   // Action running state per user ID for inline buttons
   const [actionRunningUserId, setActionRunningUserId] = React.useState<string | null>(null)
 
-  // Filtered and searched users
-  const filteredUsers = React.useMemo(() => {
-    let list = [...users]
-
-    // Role filter
-    if (roleFilter !== "ALL") {
-      list = list.filter((u) => u.role.includes(roleFilter as UserRole))
-    }
-
-    // Status filter
-    if (statusFilter === "active") {
-      list = list.filter((u) => !u.isBanned)
-    } else if (statusFilter === "banned") {
-      list = list.filter((u) => u.isBanned)
-    } else if (statusFilter === "verified") {
-      list = list.filter((u) => u.emailVerified)
-    }
-
-    // Search query
-    const q = search.trim().toLowerCase()
-    if (q) {
-      list = list.filter(
-        (u) =>
-          u.name.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q) ||
-          (u.phoneNumber && u.phoneNumber.toLowerCase().includes(q)) ||
-          (u.location && u.location.toLowerCase().includes(q)) ||
-          u.id.toLowerCase().includes(q)
-      )
-    }
-
-    return list.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-  }, [users, roleFilter, statusFilter, search])
-
-  // Pagination calculation
-  const totalItems = filteredUsers.length
-  const totalPages = Math.ceil(totalItems / pageSize) || 1
-  const safePage = Math.max(1, Math.min(page, totalPages))
-
-  const paginatedUsers = React.useMemo(() => {
-    const start = (safePage - 1) * pageSize
-    return filteredUsers.slice(start, start + pageSize)
-  }, [filteredUsers, safePage, pageSize])
-
-  // Reset to page 1 on filter/search change
+  // Sync the committed URL state ref when server-rendered props change:
+  // back/forward navigation, reloads, and server-side page clamping all land
+  // here. This only reads props into a ref - it does not navigate, so it
+  // cannot loop.
   React.useEffect(() => {
-    setPage(1)
-  }, [search, roleFilter, statusFilter, pageSize])
+    committedRef.current = { search, role, page, pageSize }
+  }, [search, role, page, pageSize])
+
+  // Keep the input in sync with the URL, but never while the user is typing in
+  // it. The URL search value is a delayed echo; writing it back mid-typing is
+  // what caused the reverting/truncating/clearing bugs.
+  React.useEffect(() => {
+    if (searchFocusedRef.current) return
+    setSearchInput(search)
+  }, [search])
+
+  // Flush any pending debounced search immediately when the input loses
+  // focus (tabbing, clicking a role tab, navigating away) so the last
+  // keystrokes aren't silently dropped.
+  const handleSearchBlur = () => {
+    searchFocusedRef.current = false
+    const next = searchInput.trim()
+    if (next !== committedRef.current.search) {
+      navigate({ search: next, page: 1 })
+    }
+  }
+
+  const navigate = React.useCallback((overrides: Partial<CommittedState>) => {
+    const next: CommittedState = { ...committedRef.current, ...overrides }
+    committedRef.current = next
+    router.push(buildQuery(next), { scroll: false })
+  }, [router])
+
+  // Debounce typing into the URL. Compares against the committed state so it
+  // never re-pushes a value that's already in the URL.
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const next = searchInput.trim()
+      if (next !== committedRef.current.search) {
+        navigate({ search: next, page: 1 })
+      }
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [searchInput, navigate])
+
+  // Cancel any pending debounced navigation from before focusing, so a stale
+  // timer can never fire mid-session after the user has started editing.
+  const handleSearchFocus = () => {
+    searchFocusedRef.current = true
+  }
+
+  function handleRoleChange(value: string) {
+    navigate({ role: value === "ALL" ? "" : value, page: 1 })
+  }
+
+  function handlePageChange(nextPage: number) {
+    // If a size change is in flight, apply it now and clear it.
+    const size = pendingSizeRef.current
+    pendingSizeRef.current = null
+    navigate(size !== null ? { pageSize: size, page: nextPage } : { page: nextPage })
+  }
+
+  function handlePageSizeChange(nextSize: number) {
+    // Stash the size; DataPagination immediately calls onPageChange(1), which
+    // performs the single navigation with both values applied.
+    pendingSizeRef.current = nextSize
+  }
 
   // Ban / Unban handler
   async function handleConfirmBan(user: AdminUser) {
@@ -133,35 +197,34 @@ export function UserTable() {
     setBanLoading(true)
     setActionRunningUserId(user.id)
 
-    toast.add({
-      type: "info",
-      title: "Updating Account Status",
-      description: `${nextBanned ? "Banning" : "Unbanning"} user ${user.name}...`,
-    })
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isBanned: nextBanned }),
+      })
 
-    // Simulate async server call
-    await new Promise((resolve) => setTimeout(resolve, 800))
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.message || "Failed to update account status")
+      }
 
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === user.id
-          ? { ...u, isBanned: nextBanned, updatedAt: new Date().toISOString() }
-          : u
-      )
-    )
+      showSuccess({
+        title: nextBanned ? "User Account Banned" : "User Account Restored",
+        message: `${user.name} (${user.email}) has been ${nextBanned ? "banned from accessing the store" : "unbanned and restored"}.`,
+      })
 
-    toast.add({
-      type: "success",
-      title: nextBanned ? "User Account Banned" : "User Account Restored",
-      description: `${user.name} (${user.email}) has been ${
-        nextBanned ? "banned from accessing the store" : "unbanned and restored"
-      }.`,
-    })
-
-    setBanLoading(false)
-    setActionRunningUserId(null)
-    setBanDialogOpen(false)
-    setSelectedUserForBan(null)
+      router.refresh()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to update account status",
+      })
+    } finally {
+      setBanLoading(false)
+      setActionRunningUserId(null)
+      setBanDialogOpen(false)
+      setSelectedUserForBan(null)
+    }
   }
 
   // Role update handler
@@ -169,33 +232,34 @@ export function UserTable() {
     setRoleLoading(true)
     setActionRunningUserId(userId)
 
-    toast.add({
-      type: "info",
-      title: "Updating User Roles",
-      description: "Applying new role permissions...",
-    })
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRoles }),
+      })
 
-    // Simulate async server call
-    await new Promise((resolve) => setTimeout(resolve, 750))
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.message || "Failed to update user roles")
+      }
 
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? { ...u, role: newRoles, updatedAt: new Date().toISOString() }
-          : u
-      )
-    )
+      showSuccess({
+        title: "Roles Updated",
+        message: `Assigned roles [${newRoles.join(", ")}] successfully.`,
+      })
 
-    toast.add({
-      type: "success",
-      title: "Roles Updated",
-      description: `Assigned roles [${newRoles.join(", ")}] successfully.`,
-    })
-
-    setRoleLoading(false)
-    setActionRunningUserId(null)
-    setRoleDialogOpen(false)
-    setSelectedUserForRole(null)
+      router.refresh()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to update user roles",
+      })
+    } finally {
+      setRoleLoading(false)
+      setActionRunningUserId(null)
+      setRoleDialogOpen(false)
+      setSelectedUserForRole(null)
+    }
   }
 
   function getInitials(name: string) {
@@ -216,8 +280,10 @@ export function UserTable() {
           <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <Input
             placeholder="Search by name, email, phone, location..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onFocus={handleSearchFocus}
+            onBlur={handleSearchBlur}
             className="pl-9 h-9 text-xs"
           />
         </div>
@@ -225,50 +291,40 @@ export function UserTable() {
         {/* Role & Status Tabs / Filters */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center rounded-lg border bg-muted/30 p-1 text-xs">
-            {ROLE_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setRoleFilter(tab.value)}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
-                  roleFilter === tab.value
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {ROLE_TABS.map((tab) => {
+              const active = (tab.value === "ALL" && role === "") || role === tab.value
+              return (
+                <button
+                  key={tab.value}
+                  onClick={() => handleRoleChange(tab.value)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-all ${
+                    active
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              )
+            })}
           </div>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filter users by account status"
-            className="h-9 rounded-md border bg-background px-3 text-xs text-foreground shadow-xs focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            {STATUS_FILTERS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
       {/* Users Count Summary */}
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span>
-          Showing <strong className="text-foreground">{paginatedUsers.length}</strong> of{" "}
-          <strong className="text-foreground">{totalItems}</strong> user accounts
+          Showing <strong className="text-foreground">{users.length}</strong> of{" "}
+          <strong className="text-foreground">{total}</strong> user accounts
         </span>
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-emerald-500" /> Active (
-            {users.filter((u) => !u.isBanned).length})
+            {activeCount})
           </span>
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-destructive" /> Banned (
-            {users.filter((u) => u.isBanned).length})
+            {bannedCount})
           </span>
         </div>
       </div>
@@ -287,7 +343,7 @@ export function UserTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedUsers.length === 0 ? (
+            {users.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-44 text-center">
                   <div className="flex flex-col items-center justify-center gap-2">
@@ -300,7 +356,7 @@ export function UserTable() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedUsers.map((user) => {
+              users.map((user) => {
                 const isOperating = actionRunningUserId === user.id
                 return (
                   <TableRow key={user.id} className="group">
@@ -483,11 +539,10 @@ export function UserTable() {
                                 setSelectedUserForBan(user)
                                 setBanDialogOpen(true)
                               }}
-                              className={`gap-2 cursor-pointer ${
-                                user.isBanned
+                              className={`gap-2 cursor-pointer ${user.isBanned
                                   ? "text-emerald-600"
                                   : "text-destructive"
-                              }`}
+                                }`}
                             >
                               {user.isBanned ? (
                                 <>
@@ -515,16 +570,13 @@ export function UserTable() {
 
       {/* Pagination component */}
       <DataPagination
-        currentPage={safePage}
+        currentPage={page}
         totalPages={totalPages}
-        totalItems={totalItems}
+        totalItems={total}
         pageSize={pageSize}
         pageSizeOptions={[6, 12, 24]}
-        onPageChange={setPage}
-        onPageSizeChange={(newSize) => {
-          setPageSize(newSize)
-          setPage(1)
-        }}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
         itemName="users"
       />
 
