@@ -2,8 +2,10 @@
 
 import * as React from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { Loader2Icon, UploadIcon } from "lucide-react"
 
 import {
   Dialog,
@@ -20,8 +22,16 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
-import { initialCategories, type AdminCategory } from "@/lib/admin-data"
-import { categorySchema, slugify, type CategoryFormValues } from "@/lib/validators"
+import { slugify, categorySchema, type CategoryFormValues } from "@/lib/validators"
+import {
+  createCategory,
+  patchCategory,
+  uploadCategoryImage,
+  checkCategorySlug,
+  validateCategoryImage,
+} from "@/lib/data-layer/admin/categories/category-actions"
+import type { AdminCategory } from "@/lib/admin-categories-data"
+import { deleteFirebaseImage } from "@/lib/firebase/deleteImage"
 
 const PRESET_IMAGES = [
   "/products/product1.webp",
@@ -45,11 +55,15 @@ export function CategoryDialog({
   onOpenChange,
   categoryToEdit,
 }: CategoryDialogProps) {
-  const categories = initialCategories
   const isEditing = !!categoryToEdit
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   const [tagsInput, setTagsInput] = React.useState("")
   const [customImageUrl, setCustomImageUrl] = React.useState("")
+  const [pickedFile, setPickedFile] = React.useState<File | null>(null)
+  const [pickedPreview, setPickedPreview] = React.useState<string | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const {
     register,
@@ -79,6 +93,8 @@ export function CategoryDialog({
       if (categoryToEdit) {
         setTagsInput(categoryToEdit.tags.join(", "))
         setCustomImageUrl("")
+        setPickedFile(null)
+        setPickedPreview(null)
         reset({
           name: categoryToEdit.name,
           slug: categoryToEdit.slug,
@@ -90,6 +106,8 @@ export function CategoryDialog({
       } else {
         setTagsInput("car, automotive")
         setCustomImageUrl("")
+        setPickedFile(null)
+        setPickedPreview(null)
         reset({
           name: "",
           slug: "",
@@ -128,36 +146,102 @@ export function CategoryDialog({
     }
   }
 
-  function onFormSubmit(data: CategoryFormValues) {
-    const conflict = categories.find(
-      (c) => c.slug.toLowerCase() === data.slug.toLowerCase() && c.id !== categoryToEdit?.id
-    )
+  function handleImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
 
-    if (conflict) {
-      setError("slug", { message: "This slug is already in use by another category" })
+    // Validate type, format, and size right when the file is picked.
+    const validationError = validateCategoryImage(file)
+    if (validationError) {
       toast.add({
         type: "error",
-        title: "Slug Conflict",
-        description: "Please specify a unique URL slug for this category.",
+        title: "Invalid Image",
+        description: validationError,
       })
       return
     }
 
-    if (isEditing && categoryToEdit) {
-      toast.add({
-        type: "success",
-        title: "Category updated",
-        description: `${data.name} changes saved.`,
-      })
-    } else {
-      toast.add({
-        type: "success",
-        title: "Category created",
-        description: `${data.name} has been created.`,
-      })
-    }
+    // Keep the file local; the Firebase upload happens when the form is
+    // submitted so nothing is permanently uploaded if the user cancels.
+    setPickedFile(file)
+    setPickedPreview(URL.createObjectURL(file))
+  }
 
-    onOpenChange(false)
+  async function onFormSubmit(data: CategoryFormValues) {
+    setIsSubmitting(true)
+
+    try {
+      // Pre-flight unique checks BEFORE uploading anything, so a failed save
+      // never leaves an orphaned image in Firebase.
+      const slugExists = await checkCategorySlug(data.slug, categoryToEdit?.id)
+      if (slugExists) {
+        setError("slug", { message: "This category slug is already used" })
+        toast.add({
+          type: "error",
+          title: "Slug Conflict",
+          description: "Please specify a unique URL slug for this category.",
+        })
+        return
+      }
+
+      let uploadedUrl: string | null = null
+      const previousImage = categoryToEdit?.image ?? null
+
+      // Upload a locally-picked file to Firebase right before persisting, so
+      // the upload only happens when the admin actually creates/saves.
+      let imageUrl = data.image
+      if (pickedFile) {
+        uploadedUrl = await uploadCategoryImage(pickedFile)
+        imageUrl = uploadedUrl
+      }
+
+      const payload = { ...data, image: imageUrl }
+
+      try {
+        if (isEditing && categoryToEdit) {
+          await patchCategory(categoryToEdit.id, payload)
+          toast.add({
+            type: "success",
+            title: "Category updated",
+            description: `${data.name} changes saved.`,
+          })
+        } else {
+          await createCategory(payload)
+          toast.add({
+            type: "success",
+            title: "Category created",
+            description: `${data.name} has been created.`,
+          })
+        }
+      } catch (err) {
+        // DB write failed after upload — remove the orphaned image.
+        if (uploadedUrl) {
+          await deleteFirebaseImage(uploadedUrl)
+        }
+        throw err
+      }
+
+      // New image uploaded while editing — remove the old Firebase image
+      // now that the DB points at the new one.
+      if (uploadedUrl && previousImage && previousImage !== uploadedUrl) {
+        await deleteFirebaseImage(previousImage)
+      }
+
+      onOpenChange(false)
+      router.refresh()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong"
+      if (message.toLowerCase().includes("slug")) {
+        setError("slug", { message })
+      }
+      toast.add({
+        type: "error",
+        title: isEditing ? "Category Update Failed" : "Category Creation Failed",
+        description: message,
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   function onFormError() {
@@ -169,7 +253,7 @@ export function CategoryDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(val) => !isSubmitting && onOpenChange(val)}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle className="font-heading text-lg font-semibold">
@@ -191,6 +275,7 @@ export function CategoryDialog({
               onChange={handleNameChange}
               placeholder="e.g. Vintage Classics & Muscle Cars"
               className="h-9 text-xs font-semibold"
+              disabled={isSubmitting}
             />
             {errors.name && <FieldError errors={[{ message: errors.name.message }]} />}
           </div>
@@ -202,6 +287,7 @@ export function CategoryDialog({
               {...register("slug")}
               placeholder="vintage-classics"
               className="h-9 text-xs font-mono"
+              disabled={isSubmitting}
             />
             {errors.slug && <FieldError errors={[{ message: errors.slug.message }]} />}
           </div>
@@ -214,6 +300,7 @@ export function CategoryDialog({
               rows={3}
               placeholder="Laser-cut metal wall silhouettes of timeless classic automobiles..."
               className="text-xs leading-relaxed"
+              disabled={isSubmitting}
             />
             {errors.description && (
               <FieldError errors={[{ message: errors.description.message }]} />
@@ -228,6 +315,7 @@ export function CategoryDialog({
               onChange={handleTagsChange}
               placeholder="classic, mustang, corvette, vintage"
               className="h-9 text-xs"
+              disabled={isSubmitting}
             />
             {errors.tags && <FieldError errors={[{ message: errors.tags.message }]} />}
           </div>
@@ -238,7 +326,7 @@ export function CategoryDialog({
             <div className="flex items-center gap-3">
               <div className="relative size-14 shrink-0 overflow-hidden rounded-md border bg-muted">
                 <Image
-                  src={customImageUrl.trim() || watchedImage || "/products/product1.webp"}
+                  src={pickedPreview || customImageUrl.trim() || watchedImage || "/products/product1.webp"}
                   alt="Category preview"
                   fill
                   sizes="56px"
@@ -246,11 +334,30 @@ export function CategoryDialog({
                 />
               </div>
               <div className="flex flex-1 flex-col gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  disabled={isSubmitting}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-1.5 w-fit text-xs"
+                >
+                  <UploadIcon className="size-3.5" />
+                  {pickedFile ? "Replace Image" : "Upload Image"}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageFileChange}
+                />
                 <Input
                   value={customImageUrl}
                   onChange={handleCustomUrlChange}
                   placeholder="Custom image URL (/products/...)"
                   className="h-8 text-xs font-mono"
+                  disabled={isSubmitting}
                 />
                 <div className="flex flex-wrap gap-1">
                   {PRESET_IMAGES.map((img) => (
@@ -266,6 +373,7 @@ export function CategoryDialog({
                           ? "border-primary ring-2 ring-primary/40"
                           : "opacity-60 hover:opacity-100"
                       }`}
+                      disabled={isSubmitting}
                     >
                       <Image src={img} alt="preset" fill sizes="28px" className="object-cover" />
                     </button>
@@ -289,6 +397,7 @@ export function CategoryDialog({
             <Switch
               checked={watchedFeatured}
               onCheckedChange={(checked) => setValue("featured", Boolean(checked))}
+              disabled={isSubmitting}
             />
           </div>
 
@@ -296,12 +405,14 @@ export function CategoryDialog({
             <Button
               type="button"
               variant="outline"
+              disabled={isSubmitting}
               onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
-            <Button type="submit">
-              {isEditing ? "Save Changes" : "Create Category"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2Icon className="size-4 animate-spin" />}
+              {isSubmitting ? (isEditing ? "Saving..." : "Creating...") : isEditing ? "Save Changes" : "Create Category"}
             </Button>
           </DialogFooter>
         </form>

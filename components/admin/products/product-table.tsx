@@ -25,13 +25,18 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatPrice, products, type Product } from "@/lib/data"
-import { initialCategories, type AdminCategory } from "@/lib/admin-data"
+import type { AdminCategory } from "@/lib/admin-categories-data"
 import { ProductDialog } from "@/components/admin/products/product-dialog"
 import { ProductDeleteDialog } from "@/components/admin/products/product-delete-dialog"
 import { DataPagination } from "@/components/admin/common/data-pagination"
 
-export function ProductTable({ initialQuery = "" }: { initialQuery?: string }) {
-  const categories: AdminCategory[] = initialCategories
+export function ProductTable({
+  initialQuery = "",
+  categories = [],
+}: {
+  initialQuery?: string
+  categories?: AdminCategory[]
+}) {
   const [search, setSearch] = React.useState(initialQuery)
   const [selectedCategory, setSelectedCategory] = React.useState<string>("All")
   const [selectedBadge, setSelectedBadge] = React.useState<string>("All")

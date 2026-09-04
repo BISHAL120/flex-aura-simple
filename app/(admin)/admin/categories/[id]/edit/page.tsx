@@ -1,23 +1,29 @@
-"use client"
-
-import * as React from "react"
-import { useParams } from "next/navigation"
+import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeftIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { initialCategories } from "@/lib/admin-data"
 import { CategoryForm } from "@/components/admin/categories/category-form"
+import { getCategoryById, getCategoryBySlug } from "@/lib/data-layer/admin/categories/category-data-layer"
+import { mapCategoryToAdminCategory } from "@/lib/data-layer/admin/categories/category-mapper"
 
-export default function AdminEditCategoryPage() {
-  const params = useParams()
-  const id = params?.id as string
+export const metadata: Metadata = {
+  title: "Edit Category — Flex Aura Admin",
+  description: "Update a product category's details, tags, and featured status.",
+}
 
-  const category = React.useMemo(() => {
-    return initialCategories.find((c) => c.id === id || c.slug === id)
-  }, [id])
+export default async function AdminEditCategoryPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
 
-  if (!category) {
+  // The edit URL uses the category ID, but links can also arrive by slug.
+  // Fall back to a slug lookup so both link styles keep working.
+  const dbCategory = (await getCategoryById(id)) ?? (await getCategoryBySlug(id))
+
+  if (!dbCategory) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
         <h2 className="font-heading text-xl font-bold">Category Not Found</h2>
@@ -37,5 +43,11 @@ export default function AdminEditCategoryPage() {
     )
   }
 
-  return <CategoryForm category={category} mode="edit" />
+  return (
+    <CategoryForm
+      key={dbCategory.id}
+      category={mapCategoryToAdminCategory(dbCategory)}
+      mode="edit"
+    />
+  )
 }

@@ -10,6 +10,8 @@ import {
   ArrowLeftIcon,
   SaveIcon,
   EyeIcon,
+  Loader2Icon,
+  UploadIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -21,9 +23,17 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
-import { initialCategories, type AdminCategory } from "@/lib/admin-data"
 import { products } from "@/lib/data"
 import { categorySchema, slugify, type CategoryFormValues } from "@/lib/validators"
+import {
+  createCategory,
+  patchCategory,
+  uploadCategoryImage,
+  checkCategorySlug,
+  validateCategoryImage,
+} from "@/lib/data-layer/admin/categories/category-actions"
+import type { AdminCategory } from "@/lib/admin-categories-data"
+import { deleteFirebaseImage } from "@/lib/firebase/deleteImage"
 
 const PRESET_IMAGES = [
   "/products/product1.webp",
@@ -51,7 +61,10 @@ interface CategoryFormProps {
 
 export function CategoryForm({ category, mode }: CategoryFormProps) {
   const router = useRouter()
-  const categories = initialCategories
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [pickedFile, setPickedFile] = React.useState<File | null>(null)
+  const [pickedPreview, setPickedPreview] = React.useState<string | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [customImageUrl, setCustomImageUrl] = React.useState("")
   const [tagsInput, setTagsInput] = React.useState(
     category ? category.tags.join(", ") : "car, automotive"
@@ -115,6 +128,27 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
     }
   }
 
+  function handleImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate type, format, and size right when the file is picked.
+    const validationError = validateCategoryImage(file)
+    if (validationError) {
+      toast.add({
+        type: "error",
+        title: "Invalid Image",
+        description: validationError,
+      })
+      return
+    }
+
+    // Keep the file local; the Firebase upload happens when the form is
+    // submitted so nothing is permanently uploaded if the user cancels.
+    setPickedFile(file)
+    setPickedPreview(URL.createObjectURL(file))
+  }
+
   // Count matching products
   const matchingProductsCount = React.useMemo(() => {
     if (!watchedTags || watchedTags.length === 0) return 0
@@ -123,36 +157,79 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
     ).length
   }, [products, watchedTags])
 
-  function onFormSubmit(data: CategoryFormValues) {
-    const conflict = categories.find(
-      (c) => c.slug.toLowerCase() === data.slug.toLowerCase() && c.id !== category?.id
-    )
+  async function onFormSubmit(data: CategoryFormValues) {
+    setIsSubmitting(true)
 
-    if (conflict) {
-      setError("slug", { message: "This category slug is already used" })
+    try {
+      // Pre-flight unique checks BEFORE uploading anything, so a failed save
+      // never leaves an orphaned image in Firebase.
+      const slugExists = await checkCategorySlug(data.slug, category?.id)
+      if (slugExists) {
+        setError("slug", { message: "This category slug is already used" })
+        toast.add({
+          type: "error",
+          title: "Slug Conflict",
+          description: "Please specify a unique URL slug for this category.",
+        })
+        return
+      }
+
+      let uploadedUrl: string | null = null
+
+      // Upload a locally-picked file to Firebase right before persisting, so
+      // the upload only happens when the admin actually creates/saves.
+      let imageUrl = data.image
+      if (pickedFile) {
+        uploadedUrl = await uploadCategoryImage(pickedFile)
+        imageUrl = uploadedUrl
+      }
+
+      const payload = { ...data, image: imageUrl }
+
+      try {
+        if (mode === "edit" && category) {
+          await patchCategory(category.id, payload)
+          toast.add({
+            type: "success",
+            title: "Category updated",
+            description: `${data.name} changes saved.`,
+          })
+        } else {
+          await createCategory(payload)
+          toast.add({
+            type: "success",
+            title: "Category created",
+            description: `${data.name} has been created.`,
+          })
+        }
+      } catch (err) {
+        // DB write failed after upload — remove the orphaned image.
+        if (uploadedUrl) {
+          await deleteFirebaseImage(uploadedUrl)
+        }
+        throw err
+      }
+
+      // New image uploaded while editing — remove the old Firebase image
+      // now that the DB points at the new one.
+      if (uploadedUrl && category?.image && category.image !== uploadedUrl) {
+        await deleteFirebaseImage(category.image)
+      }
+
+      router.push("/admin/categories")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong"
+      if (message.toLowerCase().includes("slug")) {
+        setError("slug", { message })
+      }
       toast.add({
         type: "error",
-        title: "Slug Conflict",
-        description: "Please specify a unique URL slug for this category.",
+        title: mode === "edit" ? "Category Update Failed" : "Category Creation Failed",
+        description: message,
       })
-      return
+    } finally {
+      setIsSubmitting(false)
     }
-
-    if (mode === "edit" && category) {
-      toast.add({
-        type: "success",
-        title: "Category updated",
-        description: `${data.name} changes saved.`,
-      })
-    } else {
-      toast.add({
-        type: "success",
-        title: "Category created",
-        description: `${data.name} has been created.`,
-      })
-    }
-
-    router.push("/admin/categories")
   }
 
   function onFormError() {
@@ -185,7 +262,7 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
             <p className="text-xs text-muted-foreground">
               {mode === "create"
                 ? "Organize laser-cut metal artworks into structured store categories."
-                : `Category ID: ${category?.id} · Shop Route: /shop?category=${encodeURIComponent(category?.name ?? "")}`}
+                : `Category ID: ${category?.id} · Shop Route: /shop?category=${category?.slug}`}
             </p>
           </div>
         </div>
@@ -195,14 +272,19 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
             type="button"
             variant="outline"
             size="sm"
+            disabled={isSubmitting}
             render={<Link href="/admin/categories" />}
             nativeButton={false}
           >
             Cancel
           </Button>
-          <Button type="submit" size="sm" className="gap-1.5 text-xs font-semibold">
-            <SaveIcon className="size-3.5" />
-            <span>{mode === "create" ? "Create Category" : "Save Category"}</span>
+          <Button type="submit" size="sm" className="gap-1.5 text-xs font-semibold" disabled={isSubmitting}>
+            {isSubmitting && <Loader2Icon className="size-3.5 animate-spin" />}
+            <span>
+              {isSubmitting
+                ? mode === "create" ? "Creating..." : "Saving..."
+                : mode === "create" ? "Create Category" : "Save Category"}
+            </span>
           </Button>
         </div>
       </div>
@@ -228,6 +310,7 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
                   onChange={handleNameChange}
                   placeholder="e.g. Exotic Supercars & Track Silhouettes"
                   className="h-9 text-xs font-semibold"
+                  disabled={isSubmitting}
                 />
                 {errors.name && <FieldError errors={[{ message: errors.name.message }]} />}
               </div>
@@ -239,6 +322,7 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
                   {...register("slug")}
                   placeholder="exotic-supercars"
                   className="h-9 text-xs font-mono"
+                  disabled={isSubmitting}
                 />
                 {errors.slug && <FieldError errors={[{ message: errors.slug.message }]} />}
               </div>
@@ -251,6 +335,7 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
                   rows={4}
                   placeholder="Precision laser-cut 2mm metal wall silhouettes of world-class automotive icons..."
                   className="text-xs leading-relaxed"
+                  disabled={isSubmitting}
                 />
                 {errors.description && (
                   <FieldError errors={[{ message: errors.description.message }]} />
@@ -265,6 +350,7 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
                   onChange={handleTagsChange}
                   placeholder="car, porsche, ferrari, lamborghini"
                   className="h-9 text-xs"
+                  disabled={isSubmitting}
                 />
                 {errors.tags && <FieldError errors={[{ message: errors.tags.message }]} />}
                 <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
@@ -301,6 +387,7 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
                 <Switch
                   checked={watchedFeatured}
                   onCheckedChange={(checked) => setValue("featured", Boolean(checked))}
+                  disabled={isSubmitting}
                 />
               </div>
             </CardContent>
@@ -322,11 +409,32 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
             <CardContent className="flex flex-col gap-4 text-xs">
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg border bg-muted">
                 <Image
-                  src={watchedImage || "/products/product1.webp"}
+                  src={pickedPreview || watchedImage || "/products/product1.webp"}
                   alt={watchedName || "Category banner"}
                   fill
                   sizes="(max-width: 768px) 100vw, 350px"
                   className="object-cover"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  disabled={isSubmitting}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-1.5 text-xs"
+                >
+                  <UploadIcon className="size-3.5" />
+                  {pickedFile ? "Replace Image" : "Upload Image"}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageFileChange}
                 />
               </div>
 
@@ -338,25 +446,27 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
                   onChange={handleCustomImageUrlChange}
                   placeholder="/products/product1.webp or https://..."
                   className="h-8 text-xs font-mono"
+                  disabled={isSubmitting}
                 />
                 {errors.image && <FieldError errors={[{ message: errors.image.message }]} />}
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <Label>Or Select from Workshop Artworks</Label>
-                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto rounded-md border p-2 bg-muted/20">
+                <div className="grid grid-cols-3 gap-3 max-h-56 overflow-y-auto rounded-md border p-2 bg-muted/20">
                   {PRESET_IMAGES.map((img) => (
                     <button
                       key={img}
                       type="button"
                       onClick={() => handleSelectPreset(img)}
-                      className={`relative aspect-square rounded overflow-hidden border-2 transition-all ${
+                      className={`relative h-28 w-full min-w-0 overflow-hidden rounded-md border-2 transition-all ${
                         watchedImage === img && !customImageUrl
                           ? "border-primary ring-2 ring-primary/30"
                           : "border-transparent opacity-70 hover:opacity-100"
                       }`}
+                      disabled={isSubmitting}
                     >
-                      <Image src={img} alt="preset" fill sizes="60px" className="object-cover" />
+                      <Image src={img} alt="preset" fill sizes="96px" className="object-cover" />
                     </button>
                   ))}
                 </div>

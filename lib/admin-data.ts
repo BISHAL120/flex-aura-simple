@@ -78,55 +78,6 @@ export type StoreSettings = {
   maintenanceMode: boolean
 }
 
-export type AdminCategory = {
-  id: string
-  name: string
-  slug: string
-  description: string
-  image: string
-  featured: boolean
-  tags: string[]
-}
-
-export const initialCategories: AdminCategory[] = [
-  {
-    id: "cat-1",
-    name: "Cars & Supercars",
-    slug: "cars",
-    description: "Precision laser-cut silhouettes of iconic sports cars, track weapons, and automotive legends in 2mm matte steel.",
-    image: "/products/product1.webp",
-    featured: true,
-    tags: ["car", "porsche", "ferrari", "corvette", "bmw", "audi", "lamborghini"],
-  },
-  {
-    id: "cat-2",
-    name: "Motorcycles & Superbikes",
-    slug: "motorcycles",
-    description: "Dynamic 2mm steel profiles of superbikes, cruisers, and vintage cafe racers with wall-floating standoff shadows.",
-    image: "/products/product10.jpeg",
-    featured: true,
-    tags: ["motorcycle", "bike", "ducati", "yamaha", "kawasaki"],
-  },
-  {
-    id: "cat-3",
-    name: "Custom & Backlit LED Art",
-    slug: "custom-backlit",
-    description: "Ambient warm-white LED halo backlit metal wall sculptures and tailor-made bespoke commission pieces.",
-    image: "/products/product17.jpeg",
-    featured: true,
-    tags: ["custom", "backlit", "led"],
-  },
-  {
-    id: "cat-4",
-    name: "Aviation & Abstract Metal Art",
-    slug: "abstract",
-    description: "Military fighter aircraft blueprints, aeronautical engineering wall art, and geometric minimalist metal silhouettes.",
-    image: "/products/product21.jpg",
-    featured: false,
-    tags: ["abstract", "plane", "f14", "f22", "silhouette"],
-  },
-]
-
 export const initialOrders: AdminOrder[] = [
   {
     id: "ord-101",

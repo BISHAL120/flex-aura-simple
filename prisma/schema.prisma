@@ -98,17 +98,19 @@ model PasswordResetToken {
 }
 
 model Category {
-  id              String  @id @default(auto()) @map("_id") @db.ObjectId
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
   name            String
-  slug            String  @unique
+  slug            String   @unique
   imageUrl        String
   description     String?
   icon            String?
   color           String?
   parentId        String?
-  isActive        Boolean @default(true)
-  isDeleted       Boolean @default(false)
-  sortOrder       Int?    @default(0)
+  isActive        Boolean  @default(true)
+  isDeleted       Boolean  @default(false)
+  featured        Boolean  @default(false)
+  tags            String[] @default([])
+  sortOrder       Int?     @default(0)
   metaTitle       String?
   metaDescription String?
 

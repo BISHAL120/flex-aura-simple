@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { products } from "@/lib/data"
-import { initialCategories, initialOrders, initialCustomOrders } from "@/lib/admin-data"
+import { initialOrders, initialCustomOrders } from "@/lib/admin-data"
 
 export const ADMIN_NAV_ITEMS = [
   {
@@ -40,7 +40,7 @@ export const ADMIN_NAV_ITEMS = [
     title: "Categories",
     href: "/admin/categories",
     icon: LayoutGridIcon,
-    badgeKey: "categories",
+    badgeKey: null,
   },
   {
     title: "Orders",
@@ -88,7 +88,6 @@ export function AdminSidebar({
   onNavigate?: () => void
 }) {
   const pathname = usePathname()
-  const categories = initialCategories
   const orders = initialOrders
   const customOrders = initialCustomOrders
 
@@ -102,7 +101,6 @@ export function AdminSidebar({
 
   const getBadgeValue = (key: string | null) => {
     if (key === "products") return products.length
-    if (key === "categories") return categories.length
     if (key === "pendingOrders") return pendingOrdersCount > 0 ? pendingOrdersCount : null
     if (key === "newCustomOrders") return newCustomOrdersCount > 0 ? newCustomOrdersCount : null
     return null

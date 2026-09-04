@@ -1,6 +1,7 @@
-import * as React from "react"
 import type { Metadata } from "next"
 import { ProductTable } from "@/components/admin/products/product-table"
+import { getAllCategories } from "@/lib/data-layer/admin/categories/category-data-layer"
+import { mapCategoriesToAdminCategories } from "@/lib/data-layer/admin/categories/category-mapper"
 
 export const metadata: Metadata = {
   title: "Products Catalog — Flex Aura Admin",
@@ -14,6 +15,9 @@ export default async function AdminProductsPage({
 }) {
   const { q } = await searchParams
 
+  const categoryResult = await getAllCategories(1, 100)
+  const categories = mapCategoriesToAdminCategories(categoryResult.categories)
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -25,7 +29,7 @@ export default async function AdminProductsPage({
         </p>
       </div>
 
-      <ProductTable initialQuery={q ?? ""} />
+      <ProductTable initialQuery={q ?? ""} categories={categories} />
     </div>
   )
 }
