@@ -69,7 +69,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
 
       {/* Right Column: Premium Metal Art Showcase (Large Screens) */}
-      <div className="hidden lg:flex lg:col-span-6 xl:col-span-7 relative bg-neutral-950 text-white overflow-hidden flex-col justify-between p-12 xl:p-16 border-l border-border/20">
+      <div className="hidden lg:flex lg:col-span-6 xl:col-span-7 relative bg-neutral-800 text-white overflow-hidden flex-col justify-between p-12 xl:p-16 border-l border-border/20">
         {/* Background Artwork */}
         <div className="absolute inset-0 z-0">
           <Image

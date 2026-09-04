@@ -10,8 +10,9 @@ import {
   ArrowLeftIcon,
   PlusIcon,
   Trash2Icon,
-  SaveIcon,
   EyeIcon,
+  Loader2Icon,
+  UploadIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -22,38 +23,18 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
-import { formatPrice, products, type Product } from "@/lib/data"
-import { productSchema, slugify, type ProductFormValues } from "@/lib/validators"
-
-const SAMPLE_IMAGE_OPTIONS = [
-  "/products/product1.webp",
-  "/products/product2.webp",
-  "/products/product3.webp",
-  "/products/product4.webp",
-  "/products/product5.jpeg",
-  "/products/product6.jpeg",
-  "/products/product7.jpeg",
-  "/products/product8.jpeg",
-  "/products/product9.jpeg",
-  "/products/product10.jpeg",
-  "/products/product11.jpeg",
-  "/products/product12.jpeg",
-  "/products/product13.jpeg",
-  "/products/product14.jpeg",
-  "/products/product15.jpeg",
-  "/products/product16.jpeg",
-  "/products/product17.jpeg",
-  "/products/product18.jpeg",
-  "/products/product19.jpeg",
-  "/products/product20.webp",
-  "/products/product21.jpg",
-  "/products/product22.jpg",
-  "/products/product23.jpg",
-  "/products/product24.jpg",
-  "/products/product25.jpg",
-  "/products/product26.jpg",
-  "/products/product27.jpg",
-]
+import { formatPrice } from "@/lib/data"
+import { productSchema, slugify, type ProductFormInput } from "@/lib/validators"
+import {
+  createProduct,
+  patchProduct,
+  uploadProductImage,
+  checkProductSlug,
+  validateProductImage,
+} from "@/lib/data-layer/admin/products/product-actions"
+import type { AdminProduct } from "@/lib/admin-products-data"
+import type { AdminCategory } from "@/lib/admin-categories-data"
+import { deleteFirebaseImage, deleteFirebaseImageSafe } from "@/lib/firebase/deleteImage"
 
 const BADGE_OPTIONS = [
   "None",
@@ -65,13 +46,18 @@ const BADGE_OPTIONS = [
 ]
 
 interface ProductFormProps {
-  product?: Product | null
+  product?: AdminProduct | null
+  categories: AdminCategory[]
   mode: "create" | "edit"
 }
 
-export function ProductForm({ product, mode }: ProductFormProps) {
+export function ProductForm({ product, categories, mode }: ProductFormProps) {
   const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [customImageUrl, setCustomImageUrl] = React.useState("")
+  const [pickedFile, setPickedFile] = React.useState<File | null>(null)
+  const [pickedPreview, setPickedPreview] = React.useState<string | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [tagsInput, setTagsInput] = React.useState(
     product ? product.tags.join(", ") : "car, precision-cut"
   )
@@ -92,7 +78,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
     watch,
     setError,
     formState: { errors },
-  } = useForm<ProductFormValues>({
+  } = useForm<ProductFormInput>({
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: product?.name ?? "",
@@ -101,12 +87,13 @@ export function ProductForm({ product, mode }: ProductFormProps) {
       price: product?.price ?? 89,
       compareAtPrice: product?.compareAtPrice ?? undefined,
       badge: product?.badge ?? "None",
-      image: product?.image ?? "/products/product1.webp",
-      images: product?.images ?? ["/products/product1.webp"],
+      image: product?.image ?? "",
+      images: product?.images ?? [""],
       tags: product?.tags ?? ["car", "precision-cut"],
       variants: defaultVariants,
       rating: product?.rating ?? 5.0,
       reviewCount: product?.reviewCount ?? 0,
+      categoryId: product?.categoryId ?? null,
     },
   })
 
@@ -141,11 +128,6 @@ export function ProductForm({ product, mode }: ProductFormProps) {
     setValue("tags", parsed.length > 0 ? parsed : ["laser-cut"], { shouldValidate: true })
   }
 
-  function handleSelectPresetImage(img: string) {
-    setValue("image", img, { shouldValidate: true })
-    setCustomImageUrl("")
-  }
-
   function handleCustomImageUrlChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
     setCustomImageUrl(val)
@@ -154,47 +136,25 @@ export function ProductForm({ product, mode }: ProductFormProps) {
     }
   }
 
-  function onFormSubmit(data: ProductFormValues) {
-    // Validate slug uniqueness
-    const slugConflict = products.find(
-      (p) => p.slug.toLowerCase() === data.slug.toLowerCase() && p.id !== product?.id
-    )
+  function handleImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
 
-    if (slugConflict) {
-      setError("slug", { message: "This URL slug is already used by another product" })
+    // Validate type, format, and size right when the file is picked.
+    const validationError = validateProductImage(file)
+    if (validationError) {
       toast.add({
         type: "error",
-        title: "Slug Conflict",
-        description: "Please choose a unique URL slug.",
+        title: "Invalid Image",
+        description: validationError,
       })
       return
     }
 
-    const finalBadge = data.badge === "None" || !data.badge ? undefined : data.badge
-    const finalImage = data.image
-
-    // Synchronize images array
-    const existingImages = product?.images ?? []
-    const updatedImages = [
-      finalImage,
-      ...existingImages.filter((img) => img !== finalImage),
-    ]
-
-    if (mode === "edit" && product) {
-      toast.add({
-        type: "success",
-        title: "Product updated",
-        description: `${data.name} changes saved.`,
-      })
-    } else {
-      toast.add({
-        type: "success",
-        title: "Product created",
-        description: `${data.name} published to catalog.`,
-      })
-    }
-
-    router.push("/admin/products")
+    // Keep the file local; the Firebase upload happens when the form is
+    // submitted so nothing is permanently uploaded if the user cancels.
+    setPickedFile(file)
+    setPickedPreview(URL.createObjectURL(file))
   }
 
   function onFormError() {
@@ -203,6 +163,87 @@ export function ProductForm({ product, mode }: ProductFormProps) {
       title: "Validation Error",
       description: "Please correct the highlighted fields before saving.",
     })
+  }
+
+  async function onFormSubmit(data: ProductFormInput) {
+    setIsSubmitting(true)
+
+    try {
+      // Pre-flight unique checks BEFORE uploading anything, so a failed save
+      // never leaves an orphaned image in Firebase.
+      const slugExists = await checkProductSlug(data.slug, product?.id)
+      if (slugExists) {
+        setError("slug", { message: "This URL slug is already used by another product" })
+        toast.add({
+          type: "error",
+          title: "Slug Conflict",
+          description: "Please choose a unique URL slug.",
+        })
+        return
+      }
+
+      let uploadedUrl: string | null = null
+
+      // Upload a locally-picked file to Firebase right before persisting, so
+      // the upload only happens when the admin actually creates/saves.
+      let imageUrl = data.image
+      if (pickedFile) {
+        uploadedUrl = await uploadProductImage(pickedFile)
+        imageUrl = uploadedUrl
+      }
+
+      const finalBadge = data.badge === "None" || !data.badge ? undefined : data.badge
+
+      // Synchronize images array: main image first, keep existing extras.
+      const existingImages = product?.images ?? []
+      const updatedImages = [imageUrl, ...existingImages.filter((img) => img !== imageUrl)]
+
+      const payload = { ...data, badge: finalBadge, image: imageUrl, images: updatedImages }
+
+      try {
+        if (mode === "edit" && product) {
+          await patchProduct(product.id, payload)
+          toast.add({
+            type: "success",
+            title: "Product updated",
+            description: `${data.name} changes saved.`,
+          })
+        } else {
+          await createProduct(payload)
+          toast.add({
+            type: "success",
+            title: "Product created",
+            description: `${data.name} published to catalog.`,
+          })
+        }
+      } catch (err) {
+        // DB write failed after upload — remove the orphaned image.
+        if (uploadedUrl) {
+          await deleteFirebaseImage(uploadedUrl)
+        }
+        throw err
+      }
+
+      // New image uploaded while editing — remove the old Firebase image
+      // now that the DB points at the new one.
+      if (uploadedUrl && product?.image && product.image !== uploadedUrl) {
+        await deleteFirebaseImageSafe(product.image)
+      }
+
+      router.push("/admin/products")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong"
+      if (message.toLowerCase().includes("slug")) {
+        setError("slug", { message })
+      }
+      toast.add({
+        type: "error",
+        title: mode === "edit" ? "Product Update Failed" : "Product Creation Failed",
+        description: message,
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -217,6 +258,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
             render={<Link href="/admin/products" />}
             nativeButton={false}
             title="Back to products list"
+            disabled={isSubmitting}
           >
             <ArrowLeftIcon className="size-4" />
           </Button>
@@ -239,12 +281,17 @@ export function ProductForm({ product, mode }: ProductFormProps) {
             size="sm"
             render={<Link href="/admin/products" />}
             nativeButton={false}
+            disabled={isSubmitting}
           >
             Cancel
           </Button>
-          <Button type="submit" size="sm" className="gap-1.5 text-xs font-semibold">
-            <SaveIcon className="size-3.5" />
-            <span>{mode === "create" ? "Publish Product" : "Save Changes"}</span>
+          <Button type="submit" size="sm" className="gap-1.5 text-xs font-semibold" disabled={isSubmitting}>
+            {isSubmitting && <Loader2Icon className="size-3.5 animate-spin" />}
+            <span>
+              {isSubmitting
+                ? mode === "create" ? "Publishing..." : "Saving..."
+                : mode === "create" ? "Publish Product" : "Save Changes"}
+            </span>
           </Button>
         </div>
       </div>
@@ -271,6 +318,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                   onChange={handleNameChange}
                   placeholder="e.g. Porsche 911 GT3 RS Metal Silhouette"
                   className="h-9 text-xs font-semibold"
+                  disabled={isSubmitting}
                 />
                 {errors.name && <FieldError errors={[{ message: errors.name.message }]} />}
               </div>
@@ -283,6 +331,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                     {...register("slug")}
                     placeholder="porsche-911-gt3-rs"
                     className="h-9 text-xs font-mono"
+                    disabled={isSubmitting}
                   />
                   {errors.slug && <FieldError errors={[{ message: errors.slug.message }]} />}
                 </div>
@@ -293,6 +342,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                     id="prod-badge"
                     {...register("badge")}
                     className="h-9 rounded-md border bg-background px-3 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+                    disabled={isSubmitting}
                   >
                     {BADGE_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>
@@ -304,6 +354,23 @@ export function ProductForm({ product, mode }: ProductFormProps) {
               </div>
 
               <div className="flex flex-col gap-1.5">
+                <Label htmlFor="prod-category">Category</Label>
+                <select
+                  id="prod-category"
+                  {...register("categoryId")}
+                  className="h-9 rounded-md border bg-background px-3 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+                  disabled={isSubmitting}
+                >
+                  <option value="">Uncategorized</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
                 <Label htmlFor="prod-desc">Product Description &amp; Material Details</Label>
                 <Textarea
                   id="prod-desc"
@@ -311,6 +378,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                   rows={4}
                   placeholder="High-precision 2mm electro-galvanized laser cut steel with matte black electrostatic powder coating..."
                   className="text-xs leading-relaxed"
+                  disabled={isSubmitting}
                 />
                 {errors.description && (
                   <FieldError errors={[{ message: errors.description.message }]} />
@@ -325,6 +393,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                   onChange={handleTagsChange}
                   placeholder="cars, porsche, german, best-seller"
                   className="h-9 text-xs"
+                  disabled={isSubmitting}
                 />
                 {errors.tags && <FieldError errors={[{ message: errors.tags.message }]} />}
                 <div className="flex flex-wrap gap-1 mt-1">
@@ -369,6 +438,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                     min="0"
                     {...register("price", { valueAsNumber: true })}
                     className="h-9 pl-7 text-xs font-semibold"
+                    disabled={isSubmitting}
                   />
                 </div>
                 {errors.price && <FieldError errors={[{ message: errors.price.message }]} />}
@@ -390,6 +460,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                     })}
                     placeholder="Optional original price (e.g. 119.00)"
                     className="h-9 pl-7 text-xs"
+                    disabled={isSubmitting}
                   />
                 </div>
                 {errors.compareAtPrice && (
@@ -414,6 +485,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                 type="button"
                 variant="outline"
                 size="sm"
+                disabled={isSubmitting}
                 onClick={() =>
                   appendVariant({
                     name: '40" × 25"',
@@ -449,6 +521,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                             {...register(`variants.${idx}.name` as const)}
                             placeholder='e.g. 30" × 18.5"'
                             className="h-8 text-xs font-medium"
+                            disabled={isSubmitting}
                           />
                           {errors.variants?.[idx]?.name && (
                             <span className="text-[10px] text-destructive">
@@ -463,6 +536,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                             min="0"
                             {...register(`variants.${idx}.price` as const, { valueAsNumber: true })}
                             className="h-8 text-xs font-semibold"
+                            disabled={isSubmitting}
                           />
                           {errors.variants?.[idx]?.price && (
                             <span className="text-[10px] text-destructive">
@@ -480,6 +554,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                             })}
                             placeholder="Optional"
                             className="h-8 text-xs"
+                            disabled={isSubmitting}
                           />
                         </td>
                         <td className="py-2 pr-2 text-right">
@@ -487,7 +562,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                             type="button"
                             variant="ghost"
                             size="icon-xs"
-                            disabled={variantFields.length <= 1}
+                            disabled={variantFields.length <= 1 || isSubmitting}
                             onClick={() => removeVariant(idx)}
                             className="text-muted-foreground hover:text-destructive"
                           >
@@ -512,17 +587,38 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                 Artwork Artwork &amp; Photo
               </CardTitle>
               <CardDescription className="text-xs">
-                Select from workshop library or provide custom URL
+                Select from workshop library, upload a file, or provide a custom URL
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 text-xs">
               <div className="relative aspect-square w-full overflow-hidden rounded-lg border bg-muted">
                 <Image
-                  src={watchedImage || "/products/product1.webp"}
+                  src={pickedPreview || watchedImage || ""}
                   alt={watchedName || "Product preview"}
                   fill
                   sizes="(max-width: 768px) 100vw, 350px"
                   className="object-cover"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  disabled={isSubmitting}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-1.5 text-xs"
+                >
+                  <UploadIcon className="size-3.5" />
+                  {pickedFile ? "Replace Image" : "Upload Image"}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageFileChange}
                 />
               </div>
 
@@ -532,30 +628,11 @@ export function ProductForm({ product, mode }: ProductFormProps) {
                   id="custom-url"
                   value={customImageUrl}
                   onChange={handleCustomImageUrlChange}
-                  placeholder="https://... or /products/sample.jpg"
+                  placeholder="https://... image URL"
                   className="h-8 text-xs font-mono"
+                  disabled={isSubmitting}
                 />
                 {errors.image && <FieldError errors={[{ message: errors.image.message }]} />}
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label>Or Pick from Workshop Artworks</Label>
-                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto rounded-md border p-2 bg-muted/20">
-                  {SAMPLE_IMAGE_OPTIONS.map((img) => (
-                    <button
-                      key={img}
-                      type="button"
-                      onClick={() => handleSelectPresetImage(img)}
-                      className={`relative aspect-square rounded overflow-hidden border-2 transition-all ${
-                        watchedImage === img && !customImageUrl
-                          ? "border-primary ring-2 ring-primary/30"
-                          : "border-transparent opacity-70 hover:opacity-100"
-                      }`}
-                    >
-                      <Image src={img} alt="preset" fill sizes="60px" className="object-cover" />
-                    </button>
-                  ))}
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -572,7 +649,7 @@ export function ProductForm({ product, mode }: ProductFormProps) {
               <div className="flex flex-col overflow-hidden rounded-lg border bg-background shadow-xs">
                 <div className="relative aspect-square w-full overflow-hidden bg-muted">
                   <Image
-                    src={watchedImage || "/products/product1.webp"}
+                    src={watchedImage || ""}
                     alt={watchedName || "Preview"}
                     fill
                     sizes="300px"

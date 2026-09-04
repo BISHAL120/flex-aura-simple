@@ -49,9 +49,17 @@ export const productSchema = z.object({
   variants: z.array(productVariantSchema).min(1, "At least one size variant is required"),
   rating: z.number().min(0).max(5),
   reviewCount: z.number().min(0),
+  categoryId: z
+    .string()
+    .min(1, "Select a category")
+    .nullable()
+    .optional()
+    .transform((value) => (value === "" ? null : value)),
 })
 
 export type ProductFormValues = z.infer<typeof productSchema>
+/** Pre-transform input shape (categoryId accepts "" for "Uncategorized"). */
+export type ProductFormInput = z.input<typeof productSchema>
 
 // ---------------------------------------------------------------------------
 // Category Schemas

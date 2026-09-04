@@ -2,11 +2,11 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
 import { ProductDetails } from "@/components/public/product-details/product-details"
-import { getProductBySlug, getRelatedProducts, products } from "@/lib/data"
-
-export function generateStaticParams() {
-  return products.map((product) => ({ slug: product.slug }))
-}
+import {
+  getProductBySlug,
+  getRelatedProducts,
+} from "@/lib/data-layer/admin/products/product-data-layer"
+import { mapProductToStoreProduct } from "@/lib/data-layer/admin/products/product-mapper"
 
 export async function generateMetadata({
   params,
@@ -14,8 +14,9 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>
 }): Promise<Metadata> {
   const { slug } = await params
-  const product = getProductBySlug(slug)
-  if (!product) return {}
+  const dbProduct = await getProductBySlug(slug, true)
+  if (!dbProduct) return {}
+  const product = mapProductToStoreProduct(dbProduct)
   return {
     title: `${product.name} — Flex Aura`,
     description: product.description,
@@ -28,13 +29,14 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const product = getProductBySlug(slug)
+  const dbProduct = await getProductBySlug(slug, true)
 
-  if (!product) {
+  if (!dbProduct) {
     notFound()
   }
 
-  const related = getRelatedProducts(product)
+  const product = mapProductToStoreProduct(dbProduct)
+  const related = (await getRelatedProducts(dbProduct)).map(mapProductToStoreProduct)
 
   return <ProductDetails product={product} related={related} />
 }

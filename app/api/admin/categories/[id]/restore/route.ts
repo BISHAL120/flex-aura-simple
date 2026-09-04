@@ -1,3 +1,4 @@
+import { requireAdminApi } from "@/lib/check-Access"
 import { restoreCategory } from "@/lib/data-layer/admin/categories/category-data-layer"
 import db from "@/lib/prisma"
 import { NextRequest, NextResponse } from "next/server"
@@ -7,6 +8,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAdminApi()
+    if (!auth.ok) return auth.response
+
     const { id } = await params
 
     if (typeof id !== "string" || !id) {

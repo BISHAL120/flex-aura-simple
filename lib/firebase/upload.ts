@@ -4,7 +4,7 @@ import { v4 as uuIdV4 } from "uuid";
 
 type FolderType = "Products" | "Categories" | "SubCategories" | "Carousels" | "Thumbnails" | "ProfileImages" | "Demo" | "ActivationPayment" | "OrdersPayment";
 
-export async function uploadImageFirebase(file: File, folder: FolderType, id?: string) {
+export async function uploadImageFirebase(file: File, folder: `flex-aura/${FolderType}`, id?: string) {
     const customID = id || uuIdV4();
 
     // Use the original file's extension if possible, or fallback to something

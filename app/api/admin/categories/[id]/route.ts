@@ -1,5 +1,4 @@
-import { isAdmin } from "@/lib/check-Access"
-import { checkCategorySlug } from "@/lib/data-layer/admin/categories/category-actions"
+import { requireAdminApi } from "@/lib/check-Access"
 import { deleteCategory, updateCategory } from "@/lib/data-layer/admin/categories/category-data-layer"
 import { mapCategoryToAdminCategory } from "@/lib/data-layer/admin/categories/category-mapper"
 import { deleteFirebaseImage } from "@/lib/firebase/deleteImage"
@@ -13,7 +12,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await isAdmin()
+    const auth = await requireAdminApi()
+    if (!auth.ok) return auth.response
 
     const { id } = await params
 
@@ -38,14 +38,21 @@ export async function PATCH(
       return NextResponse.json({ message: "Category not found" }, { status: 404 })
     }
 
-    // check if slug exist 
-    const slugExists = await checkCategorySlug(existing.slug)
-    if (slugExists) {
-      return NextResponse.json({ message: "A category with this slug already exists" }, { status: 409 })
+    // check if slug exists on another category
+    if (data.slug !== undefined) {
+      const slug = data.slug.trim()
+      if (slug) {
+        const slugExists = await db.category.findFirst({
+          where: { slug, id: { not: id }, isDeleted: false },
+        })
+        if (slugExists) {
+          return NextResponse.json({ message: "A category with this slug already exists" }, { status: 409 })
+        }
+      }
     }
 
     // if new image uploaded then detele the old image
-    if (data.image !== existing.imageUrl) {
+    if (data.image !== undefined && data.image !== existing.imageUrl) {
       try {
         await deleteFirebaseImage(existing.imageUrl)
       } catch (error) {
@@ -82,7 +89,8 @@ export async function DELETE(
 ) {
   try {
 
-    await isAdmin()
+    const auth = await requireAdminApi()
+    if (!auth.ok) return auth.response
 
     const { id } = await params
 

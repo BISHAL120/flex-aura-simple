@@ -9,7 +9,6 @@ import {
   LayoutGridIcon,
   ShoppingBagIcon,
   SparklesIcon,
-  MegaphoneIcon,
   StarIcon,
   SettingsIcon,
   ExternalLinkIcon,
@@ -20,7 +19,6 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { products } from "@/lib/data"
 import { initialOrders, initialCustomOrders } from "@/lib/admin-data"
 
 export const ADMIN_NAV_ITEMS = [
@@ -34,7 +32,7 @@ export const ADMIN_NAV_ITEMS = [
     title: "Products",
     href: "/admin/products",
     icon: PackageIcon,
-    badgeKey: "products",
+    badgeKey: null,
   },
   {
     title: "Categories",
@@ -53,12 +51,6 @@ export const ADMIN_NAV_ITEMS = [
     href: "/admin/custom-orders",
     icon: SparklesIcon,
     badgeKey: "newCustomOrders",
-  },
-  {
-    title: "Promotions",
-    href: "/admin/promotions",
-    icon: MegaphoneIcon,
-    badgeKey: null,
   },
   {
     title: "Customer Reviews",
@@ -100,7 +92,6 @@ export function AdminSidebar({
   ).length
 
   const getBadgeValue = (key: string | null) => {
-    if (key === "products") return products.length
     if (key === "pendingOrders") return pendingOrdersCount > 0 ? pendingOrdersCount : null
     if (key === "newCustomOrders") return newCustomOrdersCount > 0 ? newCustomOrdersCount : null
     return null

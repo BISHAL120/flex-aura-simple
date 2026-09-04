@@ -10,6 +10,7 @@ import {
   PhoneIcon,
   MailIcon,
   ExternalLinkIcon,
+  PackageIcon,
 } from "lucide-react"
 
 import {
@@ -110,7 +111,7 @@ export function OrderDetailsSheet({
               </SheetTitle>
             </div>
             <div className="flex items-center gap-2">
-              {getOrderStatusBadge(order.status)}
+              {getOrderStatusBadge(currentStatus)}
               <Button
                 variant="outline"
                 size="xs"
@@ -210,15 +211,21 @@ export function OrderDetailsSheet({
               {order.items.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-3">
-                    <div className="relative size-12 shrink-0 overflow-hidden rounded-md border bg-muted">
-                      <Image
-                        src={item.productImage}
-                        alt={item.productName}
-                        fill
-                        sizes="48px"
-                        className="object-cover"
-                      />
-                    </div>
+                    {item.productImage ? (
+                      <div className="relative size-12 shrink-0 overflow-hidden rounded-md border bg-muted">
+                        <Image
+                          src={item.productImage}
+                          alt={item.productName}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex size-12 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+                        <PackageIcon className="size-4" />
+                      </div>
+                    )}
                     <div className="flex flex-col">
                       <span className="font-medium text-foreground">{item.productName}</span>
                       <span className="text-muted-foreground">

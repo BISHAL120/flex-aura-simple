@@ -32,7 +32,6 @@ import {
 import { CategoryDialog } from "@/components/admin/categories/category-dialog"
 import { CategoryDeleteDialog } from "@/components/admin/categories/category-delete-dialog"
 import { DataPagination } from "@/components/admin/common/data-pagination"
-import { products, type Product } from "@/lib/data"
 import {
   deleteCategory,
   restoreCategory,
@@ -40,7 +39,7 @@ import {
 } from "@/lib/data-layer/admin/categories/category-actions"
 import type { AdminCategory } from "@/lib/admin-categories-data"
 import { showError, showSuccess } from "@/lib/toast"
-import { deleteFirebaseImage } from "@/lib/firebase/deleteImage"
+import { deleteFirebaseImageSafe } from "@/lib/firebase/deleteImage"
 
 const SEARCH_DEBOUNCE_MS = 500
 const DEFAULT_PAGE_SIZE = 6
@@ -52,6 +51,7 @@ interface CategoryTableProps {
   featuredCount: number
   totalCount: number
   deletedCount: number
+  productCounts: Record<string, number>
   search: string
   featuredFilter: "all" | "featured"
   deletedFilter: "active" | "deleted"
@@ -85,6 +85,7 @@ export function CategoryTable({
   featuredCount,
   totalCount,
   deletedCount,
+  productCounts,
   search,
   featuredFilter,
   deletedFilter,
@@ -170,16 +171,10 @@ export function CategoryTable({
     searchFocusedRef.current = true
   }
 
-  // Calculate matching products count for each category (mock products)
+  // Real per-category product counts come from the server page.
   const getProductCount = React.useCallback(
-    (cat: AdminCategory) => {
-      return products.filter((p: Product) =>
-        p.tags.some((pt: string) =>
-          cat.tags.some((ct: string) => ct.toLowerCase() === pt.toLowerCase())
-        )
-      ).length
-    },
-    []
+    (cat: AdminCategory) => productCounts[cat.id] ?? 0,
+    [productCounts]
   )
 
   function handleFeaturedFilterChange(filter: "all" | "featured") {
@@ -239,8 +234,9 @@ export function CategoryTable({
     try {
       await permanentDeleteCategory(cat.id)
 
-      // Remove the Firebase image now that the DB record is gone.
-      await deleteFirebaseImage(cat.image)
+      // Remove the Firebase image now that the DB record is gone. Best-effort:
+      // a missing object or bad URL must not fail the permanent delete.
+      await deleteFirebaseImageSafe(cat.image)
 
       showSuccess({
         title: "Category Permanently Deleted",
@@ -515,7 +511,7 @@ export function CategoryTable({
                                 variant="ghost"
                                 size="icon-xs"
                                 render={
-                                  <Link href={`/shop?category=${encodeURIComponent(cat.name)}`} target="_blank" />
+                                  <Link href={`/shop?category=${encodeURIComponent(cat.slug)}`} target="_blank" />
                                 }
                                 nativeButton={false}
                                 title="View in storefront shop"

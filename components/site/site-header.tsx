@@ -35,8 +35,6 @@ const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Shop", href: "/shop" },
   { label: "Custom Order", href: "/custom-order" },
-  { label: "Custom Metal Art", href: "/promotions/custom-metal-art" },
-  { label: "Backlit LED", href: "/promotions/backlit-collection" },
   { label: "About Us", href: "/about" },
   { label: "Contact", href: "/contact" },
 ]

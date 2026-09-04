@@ -1,15 +1,8 @@
-import Image from "next/image"
 import { FlameIcon, RulerIcon, HeartHandshakeIcon, SparklesIcon } from "lucide-react"
 
 import { Container } from "@/components/site/container"
 import { SectionHeading } from "@/components/site/section-heading"
 import { Newsletter } from "@/components/public/contact/newsletter"
-
-const HERO_IMAGE =
-  "/products/product1.webp"
-
-const WORKSHOP_IMAGE =
-  "/products/product5.jpeg"
 
 const values = [
   {
@@ -49,22 +42,13 @@ export default function AboutPage() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative flex min-h-80 items-center sm:min-h-100">
-        <Image
-          src={HERO_IMAGE}
-          alt="Porsche 911 GT3 RS laser-cut metal wall art"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover"
-        />
-        <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/40 to-black/10" />
-        <Container className="relative text-white">
+      <section className="relative flex min-h-80 items-center bg-muted sm:min-h-100">
+        <Container className="relative text-foreground">
           <div className="max-w-xl">
             <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
               Cut in metal. Built to last.
             </h1>
-            <p className="mt-4 text-sm text-white/85 sm:text-base">
+            <p className="mt-4 text-sm text-muted-foreground sm:text-base">
               Flex Aura started in a workshop with a fibre laser and an idea:
               your favourite car, bike or design, precision-cut from 2mm steel
               and finished in premium black powder coat.
@@ -93,15 +77,6 @@ export default function AboutPage() {
               into a gallery — custom sizes, custom designs, and backlit LED
               pieces that glow at night.
             </p>
-          </div>
-          <div className="relative aspect-4/3 overflow-hidden rounded-[min(var(--radius-4xl),24px)]">
-            <Image
-              src={WORKSHOP_IMAGE}
-              alt="Nissan GT-R R35 laser-cut metal art in a home"
-              fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-cover"
-            />
           </div>
         </Container>
       </section>

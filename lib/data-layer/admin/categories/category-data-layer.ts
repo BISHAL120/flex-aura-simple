@@ -24,6 +24,7 @@ export const getAllCategories = async (
   search: string = "",
   featured: boolean | null = null,
   deletedOnly: boolean = false,
+  activeOnly: boolean = false,
 ): Promise<CategoryListResult> => {
   try {
     const skip = (page - 1) * per_page
@@ -31,6 +32,7 @@ export const getAllCategories = async (
 
     // Active scope by default; deletedOnly shows the trash.
     const where: Prisma.CategoryWhereInput = { isDeleted: deletedOnly }
+    if (activeOnly) where.isActive = true
 
     // Text search across name, slug, description, and tags (case-insensitive
     // contains, matching the user data layer pattern)
@@ -90,10 +92,10 @@ export const getCategoryById = async (id: string) => {
   }
 }
 
-export const getCategoryBySlug = async (slug: string) => {
+export const getCategoryBySlug = async (slug: string, activeOnly = false) => {
   try {
     return await db.category.findFirst({
-      where: { slug, isDeleted: false },
+      where: { slug, isDeleted: false, ...(activeOnly && { isActive: true }) },
     })
   } catch (error) {
     console.error(`Error fetching category by slug ${slug}:`, error)

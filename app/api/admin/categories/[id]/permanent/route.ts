@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { Prisma } from "@prisma/client"
 import db from "@/lib/prisma"
 import { permanentDeleteCategory } from "@/lib/data-layer/admin/categories/category-data-layer"
-import { isAdmin } from "@/lib/check-Access"
+import { requireAdminApi } from "@/lib/check-Access"
 
 export async function DELETE(
   request: NextRequest,
@@ -10,7 +10,8 @@ export async function DELETE(
 ) {
   try {
 
-    await isAdmin()
+    const auth = await requireAdminApi()
+    if (!auth.ok) return auth.response
 
     const { id } = await params
 

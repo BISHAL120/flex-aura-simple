@@ -10,43 +10,51 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { toast } from "@/components/ui/toast"
-import type { Product } from "@/lib/data"
+import { Loader2Icon } from "lucide-react"
+import type { AdminProduct } from "@/lib/admin-products-data"
 
 interface ProductDeleteDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  product: Product | null
+  product: AdminProduct | null
+  onConfirm: () => void
+  isLoading?: boolean
+  permanent?: boolean
 }
 
 export function ProductDeleteDialog({
   open,
   onOpenChange,
   product,
+  onConfirm,
+  isLoading = false,
+  permanent = false,
 }: ProductDeleteDialogProps) {
   if (!product) return null
-
-  function handleDelete() {
-    if (!product) return
-    toast.add({
-      type: "info",
-      title: "Product removed",
-      description: `${product.name} deleted from catalog.`,
-    })
-    onOpenChange(false)
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-6">
         <DialogHeader>
           <DialogTitle className="font-heading text-base font-semibold text-destructive">
-            Delete Product?
+            {permanent ? "Permanently Delete Product?" : "Delete Product?"}
           </DialogTitle>
-          <DialogDescription className="text-xs">
-            Are you sure you want to delete{" "}
-            <strong className="text-foreground">{product.name}</strong> from the
-            Flex Aura catalog? This action will remove the product and its variants.
+          <DialogDescription className="text-xs text-muted-foreground mt-1">
+            {permanent ? (
+              <>
+                This will permanently remove the product{" "}
+                <strong className="text-foreground">{product.name}</strong>, its size
+                variants, and the cover image from the database. This action cannot be
+                undone.
+              </>
+            ) : (
+              <>
+                Are you sure you want to delete{" "}
+                <strong className="text-foreground">{product.name}</strong> from the
+                Flex Aura catalog? This action will remove the product and its variants.
+                You can restore it later from the Deleted tab.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -54,6 +62,7 @@ export function ProductDeleteDialog({
           <Button
             type="button"
             variant="outline"
+            disabled={isLoading}
             onClick={() => onOpenChange(false)}
           >
             Cancel
@@ -61,9 +70,17 @@ export function ProductDeleteDialog({
           <Button
             type="button"
             variant="destructive"
-            onClick={handleDelete}
+            disabled={isLoading}
+            onClick={onConfirm}
           >
-            Delete Product
+            {isLoading && <Loader2Icon className="size-3.5 animate-spin" />}
+            {isLoading
+              ? permanent
+                ? "Deleting Permanently..."
+                : "Deleting..."
+              : permanent
+                ? "Permanently Delete"
+                : "Delete Product"}
           </Button>
         </DialogFooter>
       </DialogContent>

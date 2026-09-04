@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { CategoryTable } from "@/components/admin/categories/category-table"
 import { getAllCategories } from "@/lib/data-layer/admin/categories/category-data-layer"
 import { mapCategoriesToAdminCategories } from "@/lib/data-layer/admin/categories/category-mapper"
+import { getProductCountsByCategoryIds } from "@/lib/data-layer/admin/products/product-data-layer"
 
 export const metadata: Metadata = {
   title: "Categories Management — Flex Aura Admin",
@@ -36,6 +37,7 @@ const AdminCategoriesPage = async ({
     deleted
   )
   const categories = mapCategoriesToAdminCategories(result.categories)
+  const productCounts = await getProductCountsByCategoryIds(categories.map((c) => c.id))
 
   // If the requested page is out of range (e.g. after a filter narrows the
   // results), send the user back to a valid page in one round trip.
@@ -67,6 +69,7 @@ const AdminCategoriesPage = async ({
         featuredCount={result.counts.featured}
         totalCount={result.counts.total}
         deletedCount={result.counts.deleted}
+        productCounts={productCounts}
         search={search}
         featuredFilter={featured ? "featured" : "all"}
         deletedFilter={deleted ? "deleted" : "active"}

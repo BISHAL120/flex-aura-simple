@@ -1,5 +1,5 @@
-import db from "@/lib/prisma"
 import { NextRequest, NextResponse } from "next/server"
+import db from "@/lib/prisma"
 import { requireAdminApi } from "@/lib/check-Access"
 
 export async function GET(request: NextRequest) {
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ message: "Invalid slug" }, { status: 400 })
     }
 
-    const count = await db.category.count({
+    const count = await db.product.count({
       where: {
         slug: slug.trim(),
         ...(excludeId ? { id: { not: excludeId } } : {}),
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ exists: count > 0 }, { status: 200 })
   } catch (error) {
-    console.error("Error checking category slug:", error)
+    console.error("Error checking product slug:", error)
     return NextResponse.json({ message: "Failed to check slug" }, { status: 500 })
   }
 }

@@ -31,18 +31,7 @@ import {
   validateCategoryImage,
 } from "@/lib/data-layer/admin/categories/category-actions"
 import type { AdminCategory } from "@/lib/admin-categories-data"
-import { deleteFirebaseImage } from "@/lib/firebase/deleteImage"
-
-const PRESET_IMAGES = [
-  "/products/product1.webp",
-  "/products/product2.webp",
-  "/products/product5.jpeg",
-  "/products/product10.jpeg",
-  "/products/product17.jpeg",
-  "/products/product20.webp",
-  "/products/product21.jpg",
-  "/products/product24.jpg",
-]
+import { deleteFirebaseImage, deleteFirebaseImageSafe } from "@/lib/firebase/deleteImage"
 
 interface CategoryDialogProps {
   open: boolean
@@ -79,7 +68,7 @@ export function CategoryDialog({
       name: "",
       slug: "",
       description: "",
-      image: "/products/product1.webp",
+      image: "",
       tags: ["car", "automotive"],
       featured: false,
     },
@@ -112,7 +101,7 @@ export function CategoryDialog({
           name: "",
           slug: "",
           description: "",
-          image: "/products/product1.webp",
+          image: "",
           tags: ["car", "automotive"],
           featured: false,
         })
@@ -224,7 +213,7 @@ export function CategoryDialog({
       // New image uploaded while editing — remove the old Firebase image
       // now that the DB points at the new one.
       if (uploadedUrl && previousImage && previousImage !== uploadedUrl) {
-        await deleteFirebaseImage(previousImage)
+        await deleteFirebaseImageSafe(previousImage)
       }
 
       onOpenChange(false)
@@ -326,7 +315,7 @@ export function CategoryDialog({
             <div className="flex items-center gap-3">
               <div className="relative size-14 shrink-0 overflow-hidden rounded-md border bg-muted">
                 <Image
-                  src={pickedPreview || customImageUrl.trim() || watchedImage || "/products/product1.webp"}
+                  src={pickedPreview || customImageUrl.trim() || watchedImage || ""}
                   alt="Category preview"
                   fill
                   sizes="56px"
@@ -355,30 +344,10 @@ export function CategoryDialog({
                 <Input
                   value={customImageUrl}
                   onChange={handleCustomUrlChange}
-                  placeholder="Custom image URL (/products/...)"
+                  placeholder="https://... image URL"
                   className="h-8 text-xs font-mono"
                   disabled={isSubmitting}
                 />
-                <div className="flex flex-wrap gap-1">
-                  {PRESET_IMAGES.map((img) => (
-                    <button
-                      key={img}
-                      type="button"
-                      onClick={() => {
-                        setValue("image", img, { shouldValidate: true })
-                        setCustomImageUrl("")
-                      }}
-                      className={`relative size-7 overflow-hidden rounded border transition-all ${
-                        watchedImage === img && !customImageUrl
-                          ? "border-primary ring-2 ring-primary/40"
-                          : "opacity-60 hover:opacity-100"
-                      }`}
-                      disabled={isSubmitting}
-                    >
-                      <Image src={img} alt="preset" fill sizes="28px" className="object-cover" />
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
             {errors.image && <FieldError errors={[{ message: errors.image.message }]} />}

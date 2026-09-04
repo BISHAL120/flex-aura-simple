@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import {
   PlusIcon,
   SearchIcon,
@@ -11,6 +12,9 @@ import {
   ExternalLinkIcon,
   SparklesIcon,
   SlidersHorizontalIcon,
+  RotateCcwIcon,
+  TrashIcon,
+  Loader2Icon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -24,141 +28,321 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatPrice, products, type Product } from "@/lib/data"
+import { formatPrice } from "@/lib/data"
+import type { AdminProduct, AdminBadgeCount } from "@/lib/admin-products-data"
 import type { AdminCategory } from "@/lib/admin-categories-data"
+import type { ProductSort } from "@/lib/data-layer/admin/products/product-data-layer"
 import { ProductDialog } from "@/components/admin/products/product-dialog"
 import { ProductDeleteDialog } from "@/components/admin/products/product-delete-dialog"
 import { DataPagination } from "@/components/admin/common/data-pagination"
+import {
+  deleteProduct,
+  restoreProduct,
+  permanentDeleteProduct,
+} from "@/lib/data-layer/admin/products/product-actions"
+import { showError, showSuccess } from "@/lib/toast"
+import { deleteFirebaseImage } from "@/lib/firebase/deleteImage"
+
+const SEARCH_DEBOUNCE_MS = 500
+const DEFAULT_PAGE_SIZE = 8
+
+interface ProductTableProps {
+  products: AdminProduct[]
+  total: number
+  totalPages: number
+  deletedCount: number
+  badges: AdminBadgeCount[]
+  categories: AdminCategory[]
+  search: string
+  category: string
+  badge: string
+  sort: ProductSort
+  deletedFilter: "active" | "deleted"
+  page: number
+  pageSize: number
+}
+
+type CommittedState = {
+  search: string
+  category: string
+  badge: string
+  sort: ProductSort
+  deletedFilter: "active" | "deleted"
+  page: number
+  pageSize: number
+}
+
+function buildQuery(state: CommittedState) {
+  const params = new URLSearchParams()
+  if (state.search) params.set("search", state.search)
+  if (state.category) params.set("category", state.category)
+  if (state.badge) params.set("badge", state.badge)
+  if (state.sort !== "newest") params.set("sort", state.sort)
+  if (state.deletedFilter === "deleted") params.set("deleted", "1")
+  if (state.page !== 1) params.set("page", String(state.page))
+  if (state.pageSize !== DEFAULT_PAGE_SIZE) params.set("per_page", String(state.pageSize))
+  const qs = params.toString()
+  return qs ? `/admin/products?${qs}` : "/admin/products"
+}
 
 export function ProductTable({
-  initialQuery = "",
-  categories = [],
-}: {
-  initialQuery?: string
-  categories?: AdminCategory[]
-}) {
-  const [search, setSearch] = React.useState(initialQuery)
-  const [selectedCategory, setSelectedCategory] = React.useState<string>("All")
-  const [selectedBadge, setSelectedBadge] = React.useState<string>("All")
-  const [sortBy, setSortBy] = React.useState<"name" | "price-asc" | "price-desc" | "rating">("name")
+  products,
+  total,
+  totalPages,
+  deletedCount,
+  badges,
+  categories,
+  search,
+  category,
+  badge,
+  sort,
+  deletedFilter,
+  page,
+  pageSize,
+}: ProductTableProps) {
+  const router = useRouter()
 
-  const [page, setPage] = React.useState(1)
-  const [pageSize, setPageSize] = React.useState(8)
+  // Local input state so typing feels instant; the URL is the source of truth.
+  const [searchInput, setSearchInput] = React.useState(search)
 
+  // While the input is focused, the typed value is authoritative. The URL is
+  // only a delayed echo of what was typed, so syncing URL -> input mid-typing
+  // would revert, truncate, or clear the value. Only sync URL -> input when
+  // the input is not focused: back/forward navigation, reloads, clamping.
+  const searchFocusedRef = React.useRef(false)
+
+  // Last committed URL state. Every navigation merges onto this ref so a slow
+  // debounce or a queued action can never drop a filter from the URL.
+  const committedRef = React.useRef<CommittedState>({
+    search,
+    category,
+    badge,
+    sort,
+    deletedFilter,
+    page,
+    pageSize,
+  })
+
+  // Pending page size while DataPagination fires both size and page callbacks
+  const pendingSizeRef = React.useRef<number | null>(null)
+
+  // Dialog states
   const [dialogOpen, setDialogOpen] = React.useState(false)
-  const [editingProduct, setEditingProduct] = React.useState<Product | null>(null)
-  const [deletingProduct, setDeletingProduct] = React.useState<Product | null>(null)
+  const [editingProduct, setEditingProduct] = React.useState<AdminProduct | null>(null)
+  const [deletingProduct, setDeletingProduct] = React.useState<AdminProduct | null>(null)
+  const [permanentDeleteConfirm, setPermanentDeleteConfirm] = React.useState(false)
+  const [deleteLoading, setDeleteLoading] = React.useState(false)
+  const [restoringId, setRestoringId] = React.useState<string | null>(null)
+  const [permanentDeletingId, setPermanentDeletingId] = React.useState<string | null>(null)
 
+  // Sync the committed URL state ref when server-rendered props change:
+  // back/forward navigation, reloads, and server-side page clamping all land
+  // here. This only reads props into a ref - it does not navigate, so it
+  // cannot loop.
   React.useEffect(() => {
-    if (initialQuery) {
-      setSearch(initialQuery)
-      setPage(1)
+    committedRef.current = {
+      search,
+      category,
+      badge,
+      sort,
+      deletedFilter,
+      page,
+      pageSize,
     }
-  }, [initialQuery])
+  }, [search, category, badge, sort, deletedFilter, page, pageSize])
 
-  const dynamicBadges = React.useMemo(() => {
-    const set = new Set<string>()
-    products.forEach((p) => {
-      if (p.badge) set.add(p.badge)
-    })
-    return ["All", ...Array.from(set)]
-  }, [products])
+  // Keep the input in sync with the URL, but never while the user is typing in
+  // it. The URL search value is a delayed echo; writing it back mid-typing is
+  // what caused the reverting/truncating/clearing bugs.
+  React.useEffect(() => {
+    if (searchFocusedRef.current) return
+    setSearchInput(search)
+  }, [search])
 
-  const categorizeProduct = React.useCallback(
-    (product: Product) => {
-      const match = categories.find((c) =>
-        c.tags.some((t) => product.tags.some((pt) => pt.toLowerCase() === t.toLowerCase()))
-      )
-      return match ? match.name : "Uncategorized"
+  const navigate = React.useCallback(
+    (overrides: Partial<CommittedState>) => {
+      const next: CommittedState = { ...committedRef.current, ...overrides }
+      committedRef.current = next
+      router.push(buildQuery(next), { scroll: false })
     },
-    [categories]
+    [router]
   )
 
-  const filtered = React.useMemo(() => {
-    let list = [...products]
-
-    if (selectedCategory !== "All") {
-      const targetCat = categories.find((c) => c.name === selectedCategory || c.slug === selectedCategory)
-      if (targetCat) {
-        list = list.filter((p) =>
-          targetCat.tags.some((t) => p.tags.some((pt) => pt.toLowerCase() === t.toLowerCase()))
-        )
+  // Debounce typing into the URL. Compares against the committed state so it
+  // never re-pushes a value that's already in the URL.
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const next = searchInput.trim()
+      if (next !== committedRef.current.search) {
+        navigate({ search: next, page: 1 })
       }
-    }
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [searchInput, navigate])
 
-    if (selectedBadge !== "All") {
-      list = list.filter((p) => p.badge?.toLowerCase() === selectedBadge.toLowerCase())
+  const handleSearchBlur = () => {
+    searchFocusedRef.current = false
+    const next = searchInput.trim()
+    if (next !== committedRef.current.search) {
+      navigate({ search: next, page: 1 })
     }
+  }
 
-    const q = search.trim().toLowerCase()
-    if (q) {
-      list = list.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.slug.toLowerCase().includes(q) ||
-          p.tags.some((t) => t.toLowerCase().includes(q))
-      )
-    }
+  const handleSearchFocus = () => {
+    searchFocusedRef.current = true
+  }
 
-    switch (sortBy) {
-      case "price-asc":
-        return list.sort((a, b) => a.price - b.price)
-      case "price-desc":
-        return list.sort((a, b) => b.price - a.price)
-      case "rating":
-        return list.sort((a, b) => b.rating - a.rating)
-      default:
-        return list.sort((a, b) => a.name.localeCompare(b.name))
-    }
-  }, [products, categories, search, selectedCategory, selectedBadge, sortBy])
-
-  const totalPages = Math.ceil(filtered.length / pageSize) || 1
-  const safePage = Math.max(1, Math.min(page, totalPages))
-  const paginatedProducts = React.useMemo(() => {
-    const start = (safePage - 1) * pageSize
-    return filtered.slice(start, start + pageSize)
-  }, [filtered, safePage, pageSize])
+  function handleDeletedFilterChange(filter: "active" | "deleted") {
+    navigate({
+      deletedFilter: filter,
+      page: 1,
+      category: "",
+      badge: "",
+      search: "",
+    })
+  }
 
   function handleOpenCreate() {
     setEditingProduct(null)
     setDialogOpen(true)
   }
 
-  function handleOpenEdit(product: Product) {
+  function handleOpenEdit(product: AdminProduct) {
     setEditingProduct(product)
     setDialogOpen(true)
   }
 
-  function handleOpenDelete(product: Product) {
+  function handleOpenDelete(product: AdminProduct) {
+    setPermanentDeleteConfirm(false)
     setDeletingProduct(product)
+  }
+
+  function handleOpenPermanentDelete(product: AdminProduct) {
+    setPermanentDeleteConfirm(true)
+    setDeletingProduct(product)
+  }
+
+  async function handleRestore(product: AdminProduct) {
+    if (restoringId) return
+    setRestoringId(product.id)
+
+    try {
+      await restoreProduct(product.id)
+
+      showSuccess({
+        title: "Product Restored",
+        message: `"${product.name}" has been restored.`,
+      })
+
+      router.refresh()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to restore product",
+      })
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
+  async function handlePermanentDelete(product: AdminProduct) {
+    if (permanentDeletingId) return
+    setPermanentDeletingId(product.id)
+
+    try {
+      await permanentDeleteProduct(product.id)
+
+      // Remove the Firebase image now that the DB record is gone. Local
+      // images and missing Firebase objects are treated as success.
+      if (product.image.startsWith("https://")) {
+        try {
+          await deleteFirebaseImage(product.image)
+        } catch (err) {
+          console.error("Error deleting product image:", err)
+        }
+      }
+
+      showSuccess({
+        title: "Product Permanently Deleted",
+        message: `"${product.name}" has been permanently removed.`,
+      })
+
+      setPermanentDeleteConfirm(false)
+      setDeletingProduct(null)
+      router.refresh()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to permanently delete product",
+      })
+    } finally {
+      setPermanentDeletingId(null)
+    }
+  }
+
+  function handlePageChange(nextPage: number) {
+    // If a size change is in flight, apply it now and clear it.
+    const size = pendingSizeRef.current
+    pendingSizeRef.current = null
+    navigate(size !== null ? { pageSize: size, page: nextPage } : { page: nextPage })
+  }
+
+  function handlePageSizeChange(nextSize: number) {
+    // Stash the size; DataPagination immediately calls onPageChange(1), which
+    // performs the single navigation with both values applied.
+    pendingSizeRef.current = nextSize
+  }
+
+  async function handleConfirmDelete() {
+    if (!deletingProduct || deleteLoading) return
+
+    if (permanentDeleteConfirm) {
+      await handlePermanentDelete(deletingProduct)
+      return
+    }
+
+    setDeleteLoading(true)
+
+    try {
+      await deleteProduct(deletingProduct.id)
+
+      showSuccess({
+        title: "Product Deleted",
+        message: `"${deletingProduct.name}" has been deleted.`,
+      })
+
+      setDeletingProduct(null)
+      router.refresh()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to delete product",
+      })
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Action Bar */}
+      {/* Top Action Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 items-center gap-2">
           <div className="relative w-full max-w-sm">
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              placeholder="Filter by name, slug or tag…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
+              placeholder="Search products by name, slug or tag…"
               className="h-9 pl-9 text-xs"
             />
           </div>
 
           <select
-            value={sortBy}
-            onChange={(e) => {
-              setSortBy(e.target.value as typeof sortBy)
-              setPage(1)
-            }}
+            value={sort}
+            onChange={(e) => navigate({ sort: e.target.value as ProductSort, page: 1 })}
             className="h-9 rounded-md border bg-background px-3 text-xs focus-visible:ring-2 focus-visible:ring-ring"
           >
+            <option value="newest">Sort: Newest</option>
             <option value="name">Sort: Name (A-Z)</option>
             <option value="price-asc">Price: Low to High</option>
             <option value="price-desc">Price: High to Low</option>
@@ -167,76 +351,105 @@ export function ProductTable({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleOpenCreate}
-            className="h-9 text-xs gap-1.5"
-            title="Open quick add modal"
-          >
-            <SparklesIcon className="size-3.5 text-amber-500" />
-            <span>Quick Add</span>
-          </Button>
+          {deletedFilter === "active" && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleOpenCreate}
+                className="h-9 text-xs gap-1.5"
+                title="Open quick add modal"
+              >
+                <SparklesIcon className="size-3.5 text-amber-500" />
+                <span>Quick Add</span>
+              </Button>
 
-          <Button
-            size="sm"
-            render={<Link href="/admin/products/new" />}
-            nativeButton={false}
-            className="h-9 text-xs gap-1.5"
-          >
-            <PlusIcon className="size-4" />
-            <span>Add Product</span>
-          </Button>
+              <Button
+                size="sm"
+                render={<Link href="/admin/products/new" />}
+                nativeButton={false}
+                className="h-9 text-xs gap-1.5"
+              >
+                <PlusIcon className="size-4" />
+                <span>Add Product</span>
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Category & Badge Filter Pills */}
+      {/* Filter Pills */}
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="text-muted-foreground mr-1 text-[11px] font-semibold uppercase">
-            Category:
-          </span>
-          {["All", ...categories.map((c) => c.name)].map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => {
-                setSelectedCategory(cat)
-                setPage(1)
-              }}
-              className={`rounded-full px-3 py-1 font-medium transition-colors ${
-                selectedCategory === cat
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        {deletedFilter === "active" && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-muted-foreground mr-1 text-[11px] font-semibold uppercase">
+              Category:
+            </span>
+            {[{ slug: "", name: "All" }, ...categories.map((c) => ({ slug: c.slug, name: c.name }))].map(
+              (cat) => (
+                <button
+                  key={cat.slug || "all"}
+                  type="button"
+                  onClick={() => navigate({ category: cat.slug, page: 1 })}
+                  className={`rounded-full px-3 py-1 font-medium transition-colors ${
+                    category === cat.slug
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              )
+            )}
+          </div>
+        )}
 
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="text-muted-foreground mr-1 text-[11px] font-semibold uppercase">
-            Badge:
-          </span>
-          {dynamicBadges.map((bdg) => (
-            <button
-              key={bdg}
-              type="button"
-              onClick={() => {
-                setSelectedBadge(bdg)
-                setPage(1)
-              }}
-              className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
-                selectedBadge === bdg
-                  ? "bg-foreground text-background font-semibold"
-                  : "bg-muted/60 text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {bdg}
-            </button>
-          ))}
+        {deletedFilter === "active" && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-muted-foreground mr-1 text-[11px] font-semibold uppercase">
+              Badge:
+            </span>
+            {[{ badge: "" as const, count: 0 }, ...badges].map((bdg) => (
+              <button
+                key={bdg.badge || "all"}
+                type="button"
+                onClick={() => navigate({ badge: bdg.badge, page: 1 })}
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+                  badge === bdg.badge
+                    ? "bg-foreground text-background font-semibold"
+                    : "bg-muted/60 text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {bdg.badge === "" ? `All (${total})` : `${bdg.badge} (${bdg.count})`}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-1 text-xs">
+          <button
+            type="button"
+            onClick={() => handleDeletedFilterChange("active")}
+            className={`rounded-full px-3 py-1 font-medium transition-colors ${
+              deletedFilter === "active"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            All ({total})
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDeletedFilterChange("deleted")}
+            className={`rounded-full px-3 py-1 font-medium transition-colors ${
+              deletedFilter === "deleted"
+                ? "bg-destructive text-white"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            Deleted ({deletedCount})
+          </button>
         </div>
       </div>
 
@@ -256,8 +469,8 @@ export function ProductTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedProducts.length > 0 ? (
-                paginatedProducts.map((product) => (
+              {products.length > 0 ? (
+                products.map((product) => (
                   <TableRow key={product.id} className="hover:bg-muted/30">
                     <TableCell>
                       <div className="relative size-14 shrink-0 overflow-hidden rounded-md border bg-muted">
@@ -302,7 +515,7 @@ export function ProductTable({
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
-                        {categorizeProduct(product)}
+                        {product.categoryName || "Uncategorized"}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-semibold text-xs text-foreground">
@@ -314,7 +527,9 @@ export function ProductTable({
                     <TableCell>
                       <div className="flex items-center gap-1 text-xs">
                         <span className="font-bold text-amber-500">★</span>
-                        <span className="font-medium text-foreground">{product.rating.toFixed(1)}</span>
+                        <span className="font-medium text-foreground">
+                          {product.rating.toFixed(1)}
+                        </span>
                         <span className="text-[11px] text-muted-foreground">
                           ({product.reviewCount})
                         </span>
@@ -322,44 +537,74 @@ export function ProductTable({
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => handleOpenEdit(product)}
-                          title="Quick edit (Modal)"
-                        >
-                          <EditIcon className="size-3.5 text-muted-foreground hover:text-foreground" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          render={
-                            <Link href={`/admin/products/${product.id}/edit`} />
-                          }
-                          nativeButton={false}
-                          title="Full page editor"
-                        >
-                          <SlidersHorizontalIcon className="size-3.5 text-muted-foreground hover:text-foreground" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          render={
-                            <Link href={`/products/${product.slug}`} target="_blank" />
-                          }
-                          nativeButton={false}
-                          title="View on storefront"
-                        >
-                          <ExternalLinkIcon className="size-3.5 text-muted-foreground hover:text-foreground" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => handleOpenDelete(product)}
-                          title="Delete product"
-                        >
-                          <Trash2Icon className="size-3.5 text-muted-foreground hover:text-destructive" />
-                        </Button>
+                        {deletedFilter === "deleted" ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={() => handleRestore(product)}
+                              disabled={restoringId === product.id}
+                              title="Restore product"
+                            >
+                              {restoringId === product.id ? (
+                                <Loader2Icon className="size-3.5 animate-spin" />
+                              ) : (
+                                <RotateCcwIcon className="size-3.5 text-muted-foreground hover:text-emerald-600" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={() => handleOpenPermanentDelete(product)}
+                              disabled={permanentDeletingId === product.id}
+                              title="Permanently delete product"
+                              className="text-destructive hover:bg-destructive/10"
+                            >
+                              <TrashIcon className="size-3.5" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={() => handleOpenEdit(product)}
+                              title="Quick edit (Modal)"
+                            >
+                              <EditIcon className="size-3.5 text-muted-foreground hover:text-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              render={
+                                <Link href={`/admin/products/${product.id}/edit`} />
+                              }
+                              nativeButton={false}
+                              title="Full page editor"
+                            >
+                              <SlidersHorizontalIcon className="size-3.5 text-muted-foreground hover:text-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              render={
+                                <Link href={`/products/${product.slug}`} target="_blank" />
+                              }
+                              nativeButton={false}
+                              title="View on storefront"
+                            >
+                              <ExternalLinkIcon className="size-3.5 text-muted-foreground hover:text-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={() => handleOpenDelete(product)}
+                              title="Delete product"
+                            >
+                              <Trash2Icon className="size-3.5 text-muted-foreground hover:text-destructive" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -379,11 +624,11 @@ export function ProductTable({
         <DataPagination
           currentPage={page}
           totalPages={totalPages}
-          totalItems={filtered.length}
+          totalItems={total}
           pageSize={pageSize}
           pageSizeOptions={[8, 12, 24, 48]}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
           itemName="products"
         />
       </div>
@@ -394,12 +639,21 @@ export function ProductTable({
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         productToEdit={editingProduct}
+        categories={categories}
       />
 
       <ProductDeleteDialog
         open={!!deletingProduct}
-        onOpenChange={(open) => !open && setDeletingProduct(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingProduct(null)
+            setPermanentDeleteConfirm(false)
+          }
+        }}
         product={deletingProduct}
+        onConfirm={handleConfirmDelete}
+        isLoading={deleteLoading || permanentDeletingId !== null}
+        permanent={permanentDeleteConfirm}
       />
     </div>
   )

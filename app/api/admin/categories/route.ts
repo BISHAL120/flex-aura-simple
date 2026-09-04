@@ -4,11 +4,12 @@ import db from "@/lib/prisma"
 import { createCategory } from "@/lib/data-layer/admin/categories/category-data-layer"
 import { mapCategoryToAdminCategory } from "@/lib/data-layer/admin/categories/category-mapper"
 import { categorySchema } from "@/lib/validators"
-import { isAdmin } from "@/lib/check-Access"
+import { requireAdminApi } from "@/lib/check-Access"
 
 export async function POST(request: NextRequest) {
   try {
-    await isAdmin()
+    const auth = await requireAdminApi()
+    if (!auth.ok) return auth.response
 
     const body = await request.json()
 
@@ -46,6 +47,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ category: mapCategoryToAdminCategory(category) }, { status: 201 })
   } catch (error) {
+    // Race: another request created the same slug between pre-check and create.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json(
+        { message: "A category with this slug already exists" },
+        { status: 409 }
+      )
+    }
     console.error("Error creating category:", error)
     return NextResponse.json(
       { message: "Failed to create category" },

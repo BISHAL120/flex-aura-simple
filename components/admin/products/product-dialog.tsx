@@ -2,9 +2,10 @@
 
 import * as React from "react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { PlusIcon, Trash2Icon } from "lucide-react"
+import { PlusIcon, Trash2Icon, Loader2Icon, UploadIcon } from "lucide-react"
 
 import {
   Dialog,
@@ -20,53 +21,40 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
-import { products, type Product } from "@/lib/data"
-import { productSchema, slugify, type ProductFormValues } from "@/lib/validators"
-
-const SAMPLE_IMAGE_OPTIONS = [
-  "/products/product1.webp",
-  "/products/product2.webp",
-  "/products/product3.webp",
-  "/products/product4.webp",
-  "/products/product5.jpeg",
-  "/products/product6.jpeg",
-  "/products/product7.jpeg",
-  "/products/product8.jpeg",
-  "/products/product9.jpeg",
-  "/products/product10.jpeg",
-  "/products/product11.jpeg",
-  "/products/product12.jpeg",
-  "/products/product13.jpeg",
-  "/products/product14.jpeg",
-  "/products/product15.jpeg",
-  "/products/product16.jpeg",
-  "/products/product17.jpeg",
-  "/products/product18.jpeg",
-  "/products/product19.jpeg",
-  "/products/product20.webp",
-  "/products/product21.jpg",
-  "/products/product22.jpg",
-  "/products/product23.jpg",
-  "/products/product24.jpg",
-  "/products/product25.jpg",
-  "/products/product26.jpg",
-  "/products/product27.jpg",
-]
+import { productSchema, slugify, type ProductFormInput } from "@/lib/validators"
+import {
+  createProduct,
+  patchProduct,
+  uploadProductImage,
+  checkProductSlug,
+  validateProductImage,
+} from "@/lib/data-layer/admin/products/product-actions"
+import type { AdminProduct } from "@/lib/admin-products-data"
+import type { AdminCategory } from "@/lib/admin-categories-data"
+import { deleteFirebaseImage, deleteFirebaseImageSafe } from "@/lib/firebase/deleteImage"
 
 interface ProductDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  productToEdit?: Product | null
+  productToEdit?: AdminProduct | null
+  categories: AdminCategory[]
 }
 
 export function ProductDialog({
   open,
   onOpenChange,
   productToEdit,
+  categories,
 }: ProductDialogProps) {
   const isEditing = !!productToEdit
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   const [tagsInput, setTagsInput] = React.useState("")
+  const [customImageUrl, setCustomImageUrl] = React.useState("")
+  const [pickedFile, setPickedFile] = React.useState<File | null>(null)
+  const [pickedPreview, setPickedPreview] = React.useState<string | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const {
     register,
@@ -77,7 +65,7 @@ export function ProductDialog({
     watch,
     setError,
     formState: { errors },
-  } = useForm<ProductFormValues>({
+  } = useForm<ProductFormInput>({
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: "",
@@ -87,8 +75,8 @@ export function ProductDialog({
       compareAtPrice: undefined,
       badge: "",
       tags: ["car", "best-seller"],
-      image: "/products/product1.webp",
-      images: ["/products/product1.webp"],
+      image: "",
+      images: [""],
       variants: [
         { name: '24" × 15"', price: 75, compareAtPrice: 95 },
         { name: '30" × 18.5"', price: 89, compareAtPrice: 109 },
@@ -96,6 +84,7 @@ export function ProductDialog({
       ],
       rating: 5,
       reviewCount: 0,
+      categoryId: null,
     },
   })
 
@@ -110,6 +99,9 @@ export function ProductDialog({
   // Synchronize when opened or productToEdit changes
   React.useEffect(() => {
     if (open) {
+      setCustomImageUrl("")
+      setPickedFile(null)
+      setPickedPreview(null)
       if (productToEdit) {
         setTagsInput(productToEdit.tags.join(", "))
         reset({
@@ -125,6 +117,7 @@ export function ProductDialog({
           variants: productToEdit.variants?.length ? productToEdit.variants : [{ name: "Standard", price: productToEdit.price }],
           rating: productToEdit.rating ?? 5,
           reviewCount: productToEdit.reviewCount ?? 0,
+          categoryId: productToEdit.categoryId ?? null,
         })
       } else {
         setTagsInput("car, best-seller")
@@ -136,8 +129,8 @@ export function ProductDialog({
           compareAtPrice: undefined,
           badge: "",
           tags: ["car", "best-seller"],
-          image: "/products/product1.webp",
-          images: ["/products/product1.webp"],
+          image: "",
+          images: [""],
           variants: [
             { name: '24" × 15"', price: 75, compareAtPrice: 95 },
             { name: '30" × 18.5"', price: 89, compareAtPrice: 109 },
@@ -145,6 +138,7 @@ export function ProductDialog({
           ],
           rating: 5,
           reviewCount: 0,
+          categoryId: null,
         })
       }
     }
@@ -168,38 +162,110 @@ export function ProductDialog({
     setValue("tags", parsed.length > 0 ? parsed : ["laser-cut"], { shouldValidate: true })
   }
 
-  function onFormSubmit(data: ProductFormValues) {
-    const conflict = products.find(
-      (p) => p.slug.toLowerCase() === data.slug.toLowerCase() && p.id !== productToEdit?.id
-    )
+  function handleCustomUrlChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value
+    setCustomImageUrl(val)
+    if (val.trim()) {
+      setValue("image", val.trim(), { shouldValidate: true })
+    }
+  }
 
-    if (conflict) {
-      setError("slug", { message: "This URL slug is already taken" })
+  function handleImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate type, format, and size right when the file is picked.
+    const validationError = validateProductImage(file)
+    if (validationError) {
       toast.add({
         type: "error",
-        title: "Slug Conflict",
-        description: "Please specify a unique URL slug.",
+        title: "Invalid Image",
+        description: validationError,
       })
       return
     }
 
-    const finalBadge = data.badge?.trim() ? data.badge.trim() : undefined
+    // Keep the file local; the Firebase upload happens when the form is
+    // submitted so nothing is permanently uploaded if the user cancels.
+    setPickedFile(file)
+    setPickedPreview(URL.createObjectURL(file))
+  }
 
-    if (isEditing && productToEdit) {
+  async function onFormSubmit(data: ProductFormInput) {
+    setIsSubmitting(true)
+
+    try {
+      // Pre-flight unique checks BEFORE uploading anything, so a failed save
+      // never leaves an orphaned image in Firebase.
+      const slugExists = await checkProductSlug(data.slug, productToEdit?.id)
+      if (slugExists) {
+        setError("slug", { message: "This URL slug is already used" })
+        toast.add({
+          type: "error",
+          title: "Slug Conflict",
+          description: "Please specify a unique URL slug.",
+        })
+        return
+      }
+
+      let uploadedUrl: string | null = null
+      const previousImage = productToEdit?.image ?? null
+
+      // Upload a locally-picked file to Firebase right before persisting, so
+      // the upload only happens when the admin actually creates/saves.
+      let imageUrl = data.image
+      if (pickedFile) {
+        uploadedUrl = await uploadProductImage(pickedFile)
+        imageUrl = uploadedUrl
+      }
+
+      const payload = { ...data, image: imageUrl }
+
+      try {
+        if (isEditing && productToEdit) {
+          await patchProduct(productToEdit.id, payload)
+          toast.add({
+            type: "success",
+            title: "Product updated",
+            description: `${data.name} changes saved.`,
+          })
+        } else {
+          await createProduct(payload)
+          toast.add({
+            type: "success",
+            title: "Product added",
+            description: `${data.name} has been published to catalog.`,
+          })
+        }
+      } catch (err) {
+        // DB write failed after upload — remove the orphaned image.
+        if (uploadedUrl) {
+          await deleteFirebaseImage(uploadedUrl)
+        }
+        throw err
+      }
+
+      // New image uploaded while editing — remove the old Firebase image
+      // now that the DB points at the new one.
+      if (uploadedUrl && previousImage && previousImage !== uploadedUrl) {
+        await deleteFirebaseImageSafe(previousImage)
+      }
+
+      onOpenChange(false)
+      router.refresh()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong"
+      if (message.toLowerCase().includes("slug")) {
+        setError("slug", { message })
+      }
       toast.add({
-        type: "success",
-        title: "Product updated",
-        description: `${data.name} changes saved.`,
+        type: "error",
+        title: isEditing ? "Product Update Failed" : "Product Creation Failed",
+        description: message,
       })
-    } else {
-      toast.add({
-        type: "success",
-        title: "Product added",
-        description: `${data.name} has been published to catalog.`,
-      })
+    } finally {
+      setIsSubmitting(false)
     }
-
-    onOpenChange(false)
   }
 
   function onFormError() {
@@ -211,7 +277,7 @@ export function ProductDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(val) => !isSubmitting && onOpenChange(val)}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle className="font-heading text-lg font-semibold">
@@ -235,6 +301,7 @@ export function ProductDialog({
                 onChange={handleNameChange}
                 placeholder="e.g. Porsche 911 GT3 RS — Rear"
                 className="h-9 text-xs"
+                disabled={isSubmitting}
               />
               {errors.name && <FieldError errors={[{ message: errors.name.message }]} />}
             </div>
@@ -247,9 +314,30 @@ export function ProductDialog({
                 {...register("slug")}
                 placeholder="e.g. porsche-911-gt3-rs-rear"
                 className="h-9 text-xs font-mono"
+                disabled={isSubmitting}
               />
               {errors.slug && <FieldError errors={[{ message: errors.slug.message }]} />}
             </div>
+          </div>
+
+          {/* Category Select */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="dlg-prod-category" className="text-xs font-medium">
+              Category
+            </Label>
+            <select
+              id="dlg-prod-category"
+              {...register("categoryId")}
+              className="h-9 rounded-md border bg-background px-3 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={isSubmitting}
+            >
+              <option value="">Uncategorized</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Description */}
@@ -263,6 +351,7 @@ export function ProductDialog({
               rows={3}
               placeholder="Precision laser-cut 2mm metal wall art with matte black powder coat…"
               className="text-xs"
+              disabled={isSubmitting}
             />
             {errors.description && (
               <FieldError errors={[{ message: errors.description.message }]} />
@@ -282,6 +371,7 @@ export function ProductDialog({
                 min="0"
                 {...register("price", { valueAsNumber: true })}
                 className="h-9 text-xs font-semibold"
+                disabled={isSubmitting}
               />
               {errors.price && <FieldError errors={[{ message: errors.price.message }]} />}
             </div>
@@ -299,6 +389,7 @@ export function ProductDialog({
                 })}
                 placeholder="Optional"
                 className="h-9 text-xs"
+                disabled={isSubmitting}
               />
               {errors.compareAtPrice && (
                 <FieldError errors={[{ message: errors.compareAtPrice.message }]} />
@@ -313,6 +404,7 @@ export function ProductDialog({
                 {...register("badge")}
                 placeholder="Best Seller / New / Backlit"
                 className="h-9 text-xs"
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -328,37 +420,50 @@ export function ProductDialog({
               onChange={handleTagsChange}
               placeholder="best-seller, porsche, car, backlit"
               className="h-9 text-xs"
+              disabled={isSubmitting}
             />
             {errors.tags && <FieldError errors={[{ message: errors.tags.message }]} />}
           </div>
 
           {/* Image Picker */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3">
             <Label className="text-xs font-medium">Primary Artwork Image</Label>
             <div className="flex items-center gap-3">
               <div className="relative size-16 shrink-0 overflow-hidden rounded-md border bg-muted">
                 <Image
-                  src={watchedImage || "/products/product1.webp"}
+                  src={pickedPreview || customImageUrl.trim() || watchedImage || ""}
                   alt="Selected preview"
                   fill
                   sizes="64px"
                   className="object-cover"
                 />
               </div>
-              <div className="flex-1">
-                <select
-                  {...register("image")}
-                  className="h-9 w-full rounded-md border bg-background px-3 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  disabled={isSubmitting}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-1.5 w-fit text-xs"
                 >
-                  {SAMPLE_IMAGE_OPTIONS.map((img) => (
-                    <option key={img} value={img}>
-                      {img.replace("/products/", "")}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Includes full 4-angle gallery views automatically.
-                </p>
+                  <UploadIcon className="size-3.5" />
+                  {pickedFile ? "Replace Image" : "Upload Image"}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageFileChange}
+                />
+                <Input
+                  value={customImageUrl}
+                  onChange={handleCustomUrlChange}
+                  placeholder="https://... image URL"
+                  className="h-8 text-xs font-mono"
+                  disabled={isSubmitting}
+                />
               </div>
             </div>
             {errors.image && <FieldError errors={[{ message: errors.image.message }]} />}
@@ -372,6 +477,7 @@ export function ProductDialog({
                 type="button"
                 variant="outline"
                 size="sm"
+                disabled={isSubmitting}
                 onClick={() =>
                   appendVariant({
                     name: `Size ${variantFields.length + 1}`,
@@ -394,6 +500,7 @@ export function ProductDialog({
                     {...register(`variants.${idx}.name` as const)}
                     placeholder='e.g. 30" × 18.5"'
                     className="h-8 text-xs flex-1"
+                    disabled={isSubmitting}
                   />
                   <div className="relative w-24">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
@@ -405,6 +512,7 @@ export function ProductDialog({
                       min="0"
                       {...register(`variants.${idx}.price` as const, { valueAsNumber: true })}
                       className="h-8 pl-6 text-xs"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <Button
@@ -412,7 +520,7 @@ export function ProductDialog({
                     variant="ghost"
                     size="icon-xs"
                     onClick={() => removeVariant(idx)}
-                    disabled={variantFields.length <= 1}
+                    disabled={variantFields.length <= 1 || isSubmitting}
                     className="text-muted-foreground hover:text-destructive shrink-0"
                   >
                     <Trash2Icon className="size-3.5" />
@@ -426,12 +534,20 @@ export function ProductDialog({
             <Button
               type="button"
               variant="outline"
+              disabled={isSubmitting}
               onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
-            <Button type="submit">
-              {isEditing ? "Save Changes" : "Publish Product"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2Icon className="size-4 animate-spin" />}
+              {isSubmitting
+                ? isEditing
+                  ? "Saving..."
+                  : "Publishing..."
+                : isEditing
+                  ? "Save Changes"
+                  : "Publish Product"}
             </Button>
           </DialogFooter>
         </form>

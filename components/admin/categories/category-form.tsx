@@ -23,7 +23,6 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
-import { products } from "@/lib/data"
 import { categorySchema, slugify, type CategoryFormValues } from "@/lib/validators"
 import {
   createCategory,
@@ -33,33 +32,15 @@ import {
   validateCategoryImage,
 } from "@/lib/data-layer/admin/categories/category-actions"
 import type { AdminCategory } from "@/lib/admin-categories-data"
-import { deleteFirebaseImage } from "@/lib/firebase/deleteImage"
-
-const PRESET_IMAGES = [
-  "/products/product1.webp",
-  "/products/product2.webp",
-  "/products/product3.webp",
-  "/products/product4.webp",
-  "/products/product5.jpeg",
-  "/products/product6.jpeg",
-  "/products/product7.jpeg",
-  "/products/product8.jpeg",
-  "/products/product9.jpeg",
-  "/products/product10.jpeg",
-  "/products/product11.jpeg",
-  "/products/product12.jpeg",
-  "/products/product17.jpeg",
-  "/products/product20.webp",
-  "/products/product21.jpg",
-  "/products/product24.jpg",
-]
+import { deleteFirebaseImage, deleteFirebaseImageSafe } from "@/lib/firebase/deleteImage"
 
 interface CategoryFormProps {
   category?: AdminCategory | null
   mode: "create" | "edit"
+  productCount?: number
 }
 
-export function CategoryForm({ category, mode }: CategoryFormProps) {
+export function CategoryForm({ category, mode, productCount = 0 }: CategoryFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [pickedFile, setPickedFile] = React.useState<File | null>(null)
@@ -83,7 +64,7 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
       name: category?.name ?? "",
       slug: category?.slug ?? "",
       description: category?.description ?? "",
-      image: category?.image ?? "/products/product1.webp",
+      image: category?.image ?? "",
       tags: category?.tags ?? ["car", "automotive"],
       featured: category?.featured ?? false,
     },
@@ -115,11 +96,6 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
     })
   }
 
-  function handleSelectPreset(img: string) {
-    setValue("image", img, { shouldValidate: true })
-    setCustomImageUrl("")
-  }
-
   function handleCustomImageUrlChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
     setCustomImageUrl(val)
@@ -149,13 +125,8 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
     setPickedPreview(URL.createObjectURL(file))
   }
 
-  // Count matching products
-  const matchingProductsCount = React.useMemo(() => {
-    if (!watchedTags || watchedTags.length === 0) return 0
-    return products.filter((p) =>
-      p.tags.some((pt) => watchedTags.includes(pt.toLowerCase()))
-    ).length
-  }, [products, watchedTags])
+  // Count of products currently assigned to this category (server-provided).
+  const matchingProductsCount = productCount
 
   async function onFormSubmit(data: CategoryFormValues) {
     setIsSubmitting(true)
@@ -213,7 +184,7 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
       // New image uploaded while editing — remove the old Firebase image
       // now that the DB points at the new one.
       if (uploadedUrl && category?.image && category.image !== uploadedUrl) {
-        await deleteFirebaseImage(category.image)
+        await deleteFirebaseImageSafe(category.image)
       }
 
       router.push("/admin/categories")
@@ -409,7 +380,7 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
             <CardContent className="flex flex-col gap-4 text-xs">
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg border bg-muted">
                 <Image
-                  src={pickedPreview || watchedImage || "/products/product1.webp"}
+                  src={pickedPreview || watchedImage || ""}
                   alt={watchedName || "Category banner"}
                   fill
                   sizes="(max-width: 768px) 100vw, 350px"
@@ -444,32 +415,11 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
                   id="cat-custom-url"
                   value={customImageUrl}
                   onChange={handleCustomImageUrlChange}
-                  placeholder="/products/product1.webp or https://..."
+                  placeholder="https://... image URL"
                   className="h-8 text-xs font-mono"
                   disabled={isSubmitting}
                 />
                 {errors.image && <FieldError errors={[{ message: errors.image.message }]} />}
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label>Or Select from Workshop Artworks</Label>
-                <div className="grid grid-cols-3 gap-3 max-h-56 overflow-y-auto rounded-md border p-2 bg-muted/20">
-                  {PRESET_IMAGES.map((img) => (
-                    <button
-                      key={img}
-                      type="button"
-                      onClick={() => handleSelectPreset(img)}
-                      className={`relative h-28 w-full min-w-0 overflow-hidden rounded-md border-2 transition-all ${
-                        watchedImage === img && !customImageUrl
-                          ? "border-primary ring-2 ring-primary/30"
-                          : "border-transparent opacity-70 hover:opacity-100"
-                      }`}
-                      disabled={isSubmitting}
-                    >
-                      <Image src={img} alt="preset" fill sizes="96px" className="object-cover" />
-                    </button>
-                  ))}
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -486,7 +436,7 @@ export function CategoryForm({ category, mode }: CategoryFormProps) {
               <div className="flex flex-col overflow-hidden rounded-lg border bg-card shadow-xs">
                 <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
                   <Image
-                    src={watchedImage || "/products/product1.webp"}
+                    src={watchedImage || ""}
                     alt={watchedName || "Preview"}
                     fill
                     sizes="300px"

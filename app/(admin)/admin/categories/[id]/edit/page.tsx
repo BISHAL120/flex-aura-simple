@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { CategoryForm } from "@/components/admin/categories/category-form"
 import { getCategoryById, getCategoryBySlug } from "@/lib/data-layer/admin/categories/category-data-layer"
 import { mapCategoryToAdminCategory } from "@/lib/data-layer/admin/categories/category-mapper"
+import { getProductCountsByCategoryIds } from "@/lib/data-layer/admin/products/product-data-layer"
 
 export const metadata: Metadata = {
   title: "Edit Category — Flex Aura Admin",
@@ -43,11 +44,14 @@ export default async function AdminEditCategoryPage({
     )
   }
 
+  const productCounts = await getProductCountsByCategoryIds([dbCategory.id])
+
   return (
     <CategoryForm
       key={dbCategory.id}
       category={mapCategoryToAdminCategory(dbCategory)}
       mode="edit"
+      productCount={productCounts[dbCategory.id] ?? 0}
     />
   )
 }

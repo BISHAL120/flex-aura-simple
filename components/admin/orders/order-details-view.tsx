@@ -221,15 +221,21 @@ export function OrderDetailsView({ order: initialOrder }: { order: AdminOrder })
                   className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="relative size-16 shrink-0 overflow-hidden rounded-md border bg-muted">
-                      <Image
-                        src={item.productImage}
-                        alt={item.productName}
-                        fill
-                        sizes="64px"
-                        className="object-cover"
-                      />
-                    </div>
+                    {item.productImage ? (
+                      <div className="relative size-16 shrink-0 overflow-hidden rounded-md border bg-muted">
+                        <Image
+                          src={item.productImage}
+                          alt={item.productName}
+                          fill
+                          sizes="64px"
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex size-16 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+                        <BoxIcon className="size-5" />
+                      </div>
+                    )}
                     <div className="flex flex-col gap-0.5">
                       <span className="font-semibold text-xs text-foreground">
                         {item.productName}

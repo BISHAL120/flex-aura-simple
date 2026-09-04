@@ -3,16 +3,15 @@ import type { Metadata } from "next"
 import { ArrowRightIcon } from "lucide-react"
 
 import { Container } from "@/components/site/container"
-import { HeroCarousel } from "@/components/site/hero-carousel"
 import { SectionHeading } from "@/components/site/section-heading"
 import { ProductGrid } from "@/components/site/product-grid"
-import { FeatureCards } from "@/components/site/feature-cards"
 import { Perks } from "@/components/site/perks"
 import { Reviews } from "@/components/site/reviews"
 import { FAQ } from "@/components/site/faq"
 import { Newsletter } from "@/components/public/contact/newsletter"
 import { Button } from "@/components/ui/button"
-import { getBestSellers, getNewArrivals } from "@/lib/data"
+import { getBestSellers, getNewArrivals } from "@/lib/data-layer/admin/products/product-data-layer"
+import { mapProductToStoreProduct } from "@/lib/data-layer/admin/products/product-mapper"
 
 export const metadata: Metadata = {
   title: "Flex Aura — Laser-Cut Metal Art",
@@ -20,14 +19,12 @@ export const metadata: Metadata = {
     "Precision laser-cut 2mm metal wall art of your favourite cars, bikes and custom designs — premium black powder coat, custom sizes, backlit LED options.",
 }
 
-export default function Page() {
-  const bestSellers = getBestSellers()
-  const newArrivals = getNewArrivals()
+export default async function Page() {
+  const bestSellers = (await getBestSellers(4)).map(mapProductToStoreProduct)
+  const newArrivals = (await getNewArrivals(4)).map(mapProductToStoreProduct)
 
   return (
     <div>
-      <HeroCarousel />
-
       <section id="best-sellers" aria-labelledby="best-sellers-heading" className="scroll-mt-20 py-14 sm:py-20">
         <Container className="mb-8 flex items-end justify-between gap-4">
           <SectionHeading
@@ -54,27 +51,6 @@ export default function Page() {
             <ArrowRightIcon />
           </Button>
         </Container>
-      </section>
-
-      <section aria-labelledby="offers-heading" className="pb-14 sm:pb-20">
-        <Container className="mb-8 flex items-end justify-between gap-4">
-          <SectionHeading
-            id="offers-heading"
-            align="left"
-            eyebrow="Made to order"
-            title="Custom & Backlit"
-            description="Names, logos, dates and designs — cut in metal and lit with warm LEDs."
-          />
-          <Button
-            render={<Link href="/shop" />}
-            nativeButton={false}
-            className="hidden shrink-0 sm:inline-flex"
-          >
-            View all
-            <ArrowRightIcon />
-          </Button>
-        </Container>
-        <FeatureCards />
       </section>
 
       <section id="new-arrivals" aria-labelledby="new-arrivals-heading" className="scroll-mt-20 py-14 sm:py-20">

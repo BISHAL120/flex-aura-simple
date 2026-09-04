@@ -24,42 +24,69 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { products, type Product } from "@/lib/data"
+import type { Product } from "@/lib/data"
+import type { AdminCategory } from "@/lib/admin-categories-data"
 
 type SortKey = "featured" | "price-asc" | "price-desc" | "rating" | "newest"
 
-const CATEGORIES = ["All", "Cars", "Motorcycles", "Custom & Backlit", "Abstract"] as const
 const SORT_KEYS: SortKey[] = ["featured", "price-asc", "price-desc", "rating", "newest"]
-const PRODUCTS_PER_PAGE = 9
-
-function isCategory(value: string): value is (typeof CATEGORIES)[number] {
-  return (CATEGORIES as readonly string[]).includes(value)
-}
 
 function isSortKey(value: string): value is SortKey {
   return SORT_KEYS.includes(value as SortKey)
 }
 
-function productCategory(product: Product): (typeof CATEGORIES)[number] {
-  if (product.tags.includes("custom") || product.tags.includes("backlit")) return "Custom & Backlit"
-  if (product.tags.includes("motorcycle")) return "Motorcycles"
-  if (product.tags.includes("abstract")) return "Abstract"
-  return "Cars"
+interface ShopViewProps {
+  products: Product[]
+  total: number
+  totalPages: number
+  categories: AdminCategory[]
+  query: string
+  category: string
+  sort: string
+  currentPage: number
 }
 
-export function ShopView() {
+export function ShopView({
+  products,
+  total,
+  totalPages,
+  categories,
+  query,
+  category,
+  sort,
+  currentPage,
+}: ShopViewProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // The URL is the single source of truth for search/filter/sort/pagination state
-  const query = searchParams.get("q") ?? ""
-  const categoryParam = searchParams.get("category") ?? "All"
-  const sortParam = searchParams.get("sort") ?? "featured"
-  const pageParam = parseInt(searchParams.get("page") ?? "1", 10)
-  const currentPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1
+  // The URL is the single source of truth for search/filter/sort/pagination state.
+  const effectiveSort: SortKey = isSortKey(sort) ? sort : "featured"
 
-  const category: (typeof CATEGORIES)[number] = isCategory(categoryParam) ? categoryParam : "All"
-  const sort: SortKey = isSortKey(sortParam) ? sortParam : "featured"
+  const [searchInput, setSearchInput] = React.useState(query)
+  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Adjust during render when the URL query changes (e.g. back/forward),
+  // avoiding a separate effect pass that would cascade renders.
+  const [prevQuery, setPrevQuery] = React.useState(query)
+  if (query !== prevQuery) {
+    setPrevQuery(query)
+    setSearchInput(query)
+  }
+
+  // Debounce search so we don't round-trip to the server on every keystroke.
+  function handleSearchChange(value: string) {
+    setSearchInput(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      updateParam("q", value, "")
+    }, 350)
+  }
+
+  React.useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
 
   function updateParam(key: string, value: string, defaultValue: string, resetPage = true) {
     const next = new URLSearchParams(searchParams.toString())
@@ -79,51 +106,6 @@ export function ShopView() {
     updateParam("page", newPage.toString(), "1", false)
   }
 
-  const filtered = React.useMemo(() => {
-    let result = products
-
-    if (category !== "All") {
-      result = result.filter((p) => productCategory(p) === category)
-    }
-
-    const q = query.trim().toLowerCase()
-    if (q) {
-      result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          p.tags.some((t) => t.toLowerCase().includes(q))
-      )
-    }
-
-    switch (sort) {
-      case "price-asc":
-        result = [...result].sort((a, b) => a.price - b.price)
-        break
-      case "price-desc":
-        result = [...result].sort((a, b) => b.price - a.price)
-        break
-      case "rating":
-        result = [...result].sort((a, b) => b.rating - a.rating)
-        break
-      case "newest":
-        result = [...result].sort((a, b) =>
-          b.tags.includes("new-arrival") === a.tags.includes("new-arrival") ? 0 : b.tags.includes("new-arrival") ? 1 : -1
-        )
-        break
-      default:
-        break
-    }
-
-    return result
-  }, [query, category, sort])
-
-  const totalPages = Math.ceil(filtered.length / PRODUCTS_PER_PAGE) || 1
-  const paginatedProducts = React.useMemo(() => {
-    const start = (currentPage - 1) * PRODUCTS_PER_PAGE
-    return filtered.slice(start, start + PRODUCTS_PER_PAGE)
-  }, [filtered, currentPage])
-
   return (
     <Container className="py-10 sm:py-14">
       <SectionHeading
@@ -141,8 +123,8 @@ export function ShopView() {
           <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            value={query}
-            onChange={(e) => updateParam("q", e.target.value, "")}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search products…"
             aria-label="Search products"
             className="pl-9"
@@ -151,9 +133,10 @@ export function ShopView() {
 
         <div className="flex flex-wrap items-center gap-3">
           <Select
-            value={category}
+            value={category || "All"}
             onValueChange={(value) => {
-              if (value && isCategory(value)) updateParam("category", value, "All")
+              if (value === "All") updateParam("category", "", "All")
+              else updateParam("category", value || "", "All")
             }}
           >
             <SelectTrigger aria-label="Filter by category" className="w-40 rounded-md">
@@ -161,16 +144,17 @@ export function ShopView() {
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
-              {CATEGORIES.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
+              <SelectItem value="All">All</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={c.slug}>
+                  {c.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           <Select
-            value={sort}
+            value={effectiveSort}
             onValueChange={(value) => {
               if (value && isSortKey(value)) updateParam("sort", value, "featured")
             }}
@@ -191,13 +175,13 @@ export function ShopView() {
 
       {/* Screen-reader announcement of the live result count */}
       <p aria-live="polite" role="status" className="sr-only">
-        {filtered.length} {filtered.length === 1 ? "product" : "products"} shown
+        {total} {total === 1 ? "product" : "products"} shown
       </p>
 
       {/* Results */}
-      {filtered.length > 0 ? (
+      {products.length > 0 ? (
         <div className="flex flex-col gap-10">
-          <ProductGrid products={paginatedProducts} />
+          <ProductGrid products={products} />
 
           {totalPages > 1 && (
             <Pagination className="mt-4">
