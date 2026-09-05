@@ -1,9 +1,9 @@
 import { StarIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { type Review } from "@/lib/data"
+import type { AdminReview } from "@/lib/admin-reviews-data"
 
-export function ReviewCard({ review }: { review: Review }) {
+export function ReviewCard({ review }: { review: AdminReview }) {
   const initials = review.name
     .split(" ")
     .map((part) => part[0])
@@ -33,7 +33,13 @@ export function ReviewCard({ review }: { review: Review }) {
         </span>
         <div className="flex flex-col">
           <span className="text-sm font-medium">{review.name}</span>
-          <time className="text-xs text-muted-foreground">{review.date}</time>
+          <time className="text-xs text-muted-foreground">
+            {new Date(review.date).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </time>
         </div>
       </figcaption>
     </figure>

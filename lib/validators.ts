@@ -194,13 +194,16 @@ export type CampaignFormValues = z.infer<typeof campaignSchema>
 export const reviewSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(2, "Customer name is required"),
-  rating: z.number().min(1).max(5),
-  date: z.string().min(1, "Review date is required"),
+  rating: z.coerce.number().min(1).max(5),
+  date: z.coerce.date("Review date is required"),
   title: z.string().min(2, "Review title is required"),
   body: z.string().min(5, "Review body is required"),
+  isActive: z.boolean().default(true),
 })
 
 export type ReviewFormValues = z.infer<typeof reviewSchema>
+/** Pre-transform input shape (used by the form; isActive defaults via zod). */
+export type ReviewFormInput = z.input<typeof reviewSchema>
 
 // ---------------------------------------------------------------------------
 // Checkout Schemas

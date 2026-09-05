@@ -208,3 +208,20 @@ model CustomOrder {
   @@index([customerPhone])
   @@index([status])
 }
+
+model Review {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  rating    Int
+  date      DateTime
+  title     String
+  body      String
+  isActive  Boolean  @default(true)
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([isDeleted])
+  @@index([rating])
+}

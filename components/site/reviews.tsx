@@ -1,21 +1,14 @@
-"use client"
-
 import * as React from "react"
 
 import { Container } from "@/components/site/container"
 import { SectionHeading } from "@/components/site/section-heading"
-import { ReviewCard } from "@/components/site/review-card"
-import { Button } from "@/components/ui/button"
-import { reviews } from "@/lib/data"
+import { ReviewsGrid } from "@/components/site/reviews-grid"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getActiveReviews } from "@/lib/data-layer/admin/reviews/review-data-layer"
+import { mapReviewsToAdminReviews } from "@/lib/data-layer/admin/reviews/review-mapper"
 
-const INITIAL_COUNT = 6
-const INCREMENT = 4
-
-export function Reviews() {
-  const [visibleCount, setVisibleCount] = React.useState(INITIAL_COUNT)
-
-  const visibleReviews = reviews.slice(0, visibleCount)
-  const hasMore = visibleCount < reviews.length
+export async function Reviews() {
+  const reviews = mapReviewsToAdminReviews(await getActiveReviews(50))
 
   return (
     <section aria-labelledby="reviews-heading">
@@ -23,26 +16,24 @@ export function Reviews() {
         <SectionHeading
           eyebrow="Reviews"
           title="What our customers say"
-          description="Real feedback from real walls — over 20,000 pieces shipped and counting."
+          description="Real feedback from real walls — every review is from a delivered Flex Aura piece."
         />
-        <div
-          id="reviews-list"
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        <React.Suspense
+          fallback={
+            <div className="grid w-full gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex flex-col gap-3 rounded-lg border bg-card p-5">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-20 w-full" />
+                  <Skeleton className="h-4 w-40" />
+                </div>
+              ))}
+            </div>
+          }
         >
-          {visibleReviews.map((review) => (
-            <ReviewCard key={`${review.name}-${review.date}`} review={review} />
-          ))}
-        </div>
-        {hasMore ? (
-          <Button
-            variant="outline"
-            size="lg"
-            aria-controls="reviews-list"
-            onClick={() => setVisibleCount((count) => count + INCREMENT)}
-          >
-            View more reviews
-          </Button>
-        ) : null}
+          <ReviewsGrid reviews={reviews} />
+        </React.Suspense>
       </Container>
     </section>
   )
