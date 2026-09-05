@@ -108,16 +108,26 @@ export type StoreSettingsFormValues = z.infer<typeof storeSettingsSchema>
 export const customOrderSchema = z.object({
   customerName: z.string().min(2, "Name must be at least 2 characters"),
   customerEmail: z.string().email("Valid email address is required"),
-  customerPhone: z.string().min(5, "Phone number is required"),
+  customerPhone: z
+    .string()
+    .min(6, "Phone number must be at least 6 digits")
+    .regex(/^[+]?[\d\s()-]{6,20}$/, "Enter a valid phone / WhatsApp number"),
   country: z.string().min(2, "Country is required"),
+  deliveryAddress: z.string().optional(),
   designRequirement: z.string().min(10, "Please provide at least 10 characters describing your request"),
   sizeOption: z.string().min(1, "Please select a size option"),
   customDimensions: z.string().optional(),
   withBacklitLed: z.boolean(),
+  specialRequest: z.string().optional(),
   referenceImage: z.string().optional(),
 })
 
 export type CustomOrderFormValues = z.infer<typeof customOrderSchema>
+
+/** Server-side shape after zod coercion, used by the submit API. */
+export type CustomOrderSubmitInput = z.infer<typeof customOrderSchema> & {
+  deliveryAddress?: string
+}
 
 // ---------------------------------------------------------------------------
 // Contact Form Schema

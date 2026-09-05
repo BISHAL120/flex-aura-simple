@@ -174,3 +174,37 @@ model HeroSlide {
   @@index([isActive])
   @@index([isDeleted])
 }
+
+enum CustomOrderStatus {
+  new
+  quoted
+  approved
+  inProduction
+  completed
+  declined
+}
+
+model CustomOrder {
+  id               String            @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber      String            @unique
+  customerName     String
+  customerEmail    String
+  customerPhone    String
+  country          String
+  deliveryAddress  String?
+  designRequirement String
+  sizeOption       String
+  customDimensions String?
+  withBacklitLed   Boolean           @default(false)
+  specialRequest   String?
+  referenceImage   String?
+  quotedPrice      Int?
+  status           CustomOrderStatus @default(new)
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([customerEmail])
+  @@index([customerPhone])
+  @@index([status])
+}

@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import {
   ArrowLeftIcon,
   SparklesIcon,
@@ -13,6 +14,7 @@ import {
   MailIcon,
   SendIcon,
   SaveIcon,
+  Loader2Icon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -21,53 +23,72 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { toast } from "@/components/ui/toast"
-import type { CustomOrderInquiry, CustomOrderStatus } from "@/lib/admin-data"
+import { showError, showSuccess } from "@/lib/toast"
+import {
+  CUSTOM_ORDER_STATUS_LABELS,
+  CUSTOM_ORDER_STATUSES,
+  type AdminCustomOrder,
+  type CustomOrderStatus,
+} from "@/lib/admin-custom-orders-data"
+import { patchCustomOrder } from "@/lib/data-layer/admin/custom-orders/custom-order-actions"
 
-const STATUS_OPTIONS: { value: CustomOrderStatus; label: string }[] = [
-  { value: "new", label: "New (Needs Pricing)" },
-  { value: "quoted", label: "Priced (Awaiting Customer Approval)" },
-  { value: "approved", label: "Approved & CAD Confirmed" },
-  { value: "in-production", label: "In Laser Cutting & Coating" },
-  { value: "completed", label: "Completed & Dispatched" },
-  { value: "declined", label: "Declined" },
-]
+const STATUS_OPTIONS: { value: CustomOrderStatus; label: string }[] =
+  CUSTOM_ORDER_STATUSES.map((s) => ({ value: s, label: CUSTOM_ORDER_STATUS_LABELS[s] }))
 
-export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: CustomOrderInquiry }) {
-  const liveInquiry = initialInquiry
-
+export function CustomOrderDetailsView({ order }: { order: AdminCustomOrder }) {
+  const router = useRouter()
   const [quotePrice, setQuotePrice] = React.useState(
-    liveInquiry.quotedPrice ? liveInquiry.quotedPrice.toString() : ""
+    order.quotedPrice != null ? (order.quotedPrice / 100).toString() : ""
   )
-  const [status, setStatus] = React.useState<CustomOrderStatus>(liveInquiry.status)
-  const [notes, setNotes] = React.useState(liveInquiry.notes ?? "")
-  const [savedSuccess, setSavedSuccess] = React.useState(false)
+  const [status, setStatus] = React.useState<CustomOrderStatus>(order.status)
+  const [notes, setNotes] = React.useState(order.notes ?? "")
+  const [saving, setSaving] = React.useState(false)
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    toast.add({
-      type: "success",
-      title: "Custom order saved",
-      description: `Inquiry ${liveInquiry.inquiryNumber} status updated to ${status}.`,
-    })
-    setSavedSuccess(true)
-    setTimeout(() => setSavedSuccess(false), 2500)
+    if (saving) return
+    setSaving(true)
+
+    const price = quotePrice.trim()
+    const quotedPrice = price === "" ? null : Number(price)
+    if (price !== "" && (Number.isNaN(quotedPrice) || (quotedPrice as number) < 0)) {
+      showError({ message: "Please enter a valid quoted price." })
+      setSaving(false)
+      return
+    }
+
+    try {
+      await patchCustomOrder(order.id, {
+        status,
+        notes: notes.trim() || null,
+        quotedPrice,
+      })
+      showSuccess({
+        title: "Custom order updated",
+        message: `${order.orderNumber} status updated to ${CUSTOM_ORDER_STATUS_LABELS[status]}.`,
+      })
+      router.refresh()
+    } catch (err) {
+      showError({
+        message: err instanceof Error ? err.message : "Failed to update custom order",
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const inquiry = liveInquiry
-
   // WhatsApp reply link
-  const waPhone = inquiry.customerPhone.replace(/[^0-9]/g, "")
+  const waPhone = order.customerPhone.replace(/[^0-9]/g, "")
   const quotedAmountStr = quotePrice ? `$${quotePrice}` : "your requested specification"
   const waReplyMessage = encodeURIComponent(
-    `Hi ${inquiry.customerName}! Flex Aura here regarding your custom metal art order (${inquiry.inquiryNumber}). We have reviewed your design requirement: "${inquiry.designRequirement.slice(0, 60)}...". Our custom price for this piece is ${quotedAmountStr}. Would you like us to prepare the initial CAD drawing for your approval?`
+    `Hi ${order.customerName}! Flex Aura here regarding your custom metal art order (${order.orderNumber}). We have reviewed your design requirement: "${order.designRequirement.slice(0, 60)}...". Our custom price for this piece is ${quotedAmountStr}. Would you like us to prepare the initial CAD drawing for your approval?`
   )
   const waReplyLink = `https://wa.me/${waPhone}?text=${waReplyMessage}`
 
   return (
     <div className="flex flex-col gap-8">
       {/* Top Bar Navigation */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+      <div className="flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button
             type="button"
@@ -82,14 +103,15 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <h1 className="font-heading text-2xl font-bold tracking-tight">
-                Custom Order: {inquiry.inquiryNumber}
+                Custom Order: {order.orderNumber}
               </h1>
-              <Badge variant="secondary" className="capitalize text-xs">
-                {inquiry.status}
+              <Badge variant="secondary" className="text-xs capitalize">
+                {order.status}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Submitted on {new Date(inquiry.createdAt).toLocaleDateString("en-US", {
+              Submitted on{" "}
+              {new Date(order.createdAt).toLocaleDateString("en-US", {
                 weekday: "short",
                 year: "numeric",
                 month: "short",
@@ -108,7 +130,7 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
             size="sm"
             render={<a href={waReplyLink} target="_blank" rel="noreferrer" />}
             nativeButton={false}
-            className="gap-1.5 text-xs bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/20 border-emerald-500/30"
+            className="gap-1.5 border-emerald-500/30 bg-emerald-600/10 text-xs text-emerald-700 hover:bg-emerald-600/20"
           >
             <SendIcon className="size-3.5" />
             <span>Send WhatsApp Message</span>
@@ -117,10 +139,11 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
             type="button"
             size="sm"
             onClick={handleSave}
+            disabled={saving}
             className="gap-1.5 text-xs font-semibold"
           >
-            <SaveIcon className="size-3.5" />
-            <span>{savedSuccess ? "Saved!" : "Save Custom Order"}</span>
+            {saving ? <Loader2Icon className="size-3.5 animate-spin" /> : <SaveIcon className="size-3.5" />}
+            <span>{saving ? "Saving…" : "Save Custom Order"}</span>
           </Button>
         </div>
       </div>
@@ -131,7 +154,7 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
           {/* Design Request Card */}
           <Card className="border bg-card shadow-xs">
             <CardHeader className="pb-3">
-              <CardTitle className="font-heading text-base font-semibold flex items-center gap-2">
+              <CardTitle className="font-heading flex items-center gap-2 text-base font-semibold">
                 <SparklesIcon className="size-4 text-amber-500" />
                 Custom Design Requirements
               </CardTitle>
@@ -141,28 +164,26 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
             </CardHeader>
             <CardContent className="flex flex-col gap-4 text-xs">
               <div className="rounded-lg border bg-muted/20 p-4 leading-relaxed text-foreground">
-                {inquiry.designRequirement}
+                {order.designRequirement}
               </div>
 
-              {inquiry.specialRequest && (
-                <div className="flex flex-col gap-1 rounded-lg border bg-amber-500/5 border-amber-500/20 p-3 text-xs">
+              {order.specialRequest && (
+                <div className="flex flex-col gap-1 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs">
                   <span className="font-semibold text-amber-800 dark:text-amber-300">
                     Special Mounting / Finish Request:
                   </span>
-                  <p className="text-muted-foreground">{inquiry.specialRequest}</p>
+                  <p className="text-muted-foreground">{order.specialRequest}</p>
                 </div>
               )}
 
               {/* Specs & Dimensions */}
-              <div className="grid gap-3 sm:grid-cols-2 pt-2">
+              <div className="grid gap-3 pt-2 sm:grid-cols-2">
                 <div className="flex flex-col gap-1 rounded-lg border p-3">
-                  <span className="text-[11px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground uppercase">
                     <RulerIcon className="size-3" /> Requested Sizing
                   </span>
-                  <span className="font-medium text-sm text-foreground">
-                    {inquiry.sizeOption === "custom"
-                      ? inquiry.customDimensions
-                      : inquiry.sizeOption}
+                  <span className="text-sm font-medium text-foreground">
+                    {order.sizeOption === "custom" ? order.customDimensions : order.sizeOption}
                   </span>
                   <span className="text-[11px] text-muted-foreground">
                     Precision 2mm Fibre Laser Profile Cut
@@ -170,15 +191,15 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
                 </div>
 
                 <div className="flex flex-col gap-1 rounded-lg border p-3">
-                  <span className="text-[11px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground uppercase">
                     <LightbulbIcon className="size-3" /> LED Backlight Feature
                   </span>
-                  {inquiry.withBacklitLed ? (
-                    <span className="font-medium text-sm text-amber-600 flex items-center gap-1">
+                  {order.withBacklitLed ? (
+                    <span className="flex items-center gap-1 text-sm font-medium text-amber-600">
                       Warm White Ambient LED Strip Included
                     </span>
                   ) : (
-                    <span className="font-medium text-sm text-muted-foreground">
+                    <span className="text-sm font-medium text-muted-foreground">
                       Standard Matte Black Powder Coat (No LED)
                     </span>
                   )}
@@ -214,6 +235,7 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
                       id="view-quote-price"
                       type="number"
                       step="0.01"
+                      min="0"
                       value={quotePrice}
                       onChange={(e) => setQuotePrice(e.target.value)}
                       placeholder="e.g. 245.00"
@@ -261,10 +283,11 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
                   type="button"
                   onClick={handleSave}
                   size="sm"
+                  disabled={saving}
                   className="gap-1.5 text-xs font-semibold"
                 >
-                  <SaveIcon className="size-3.5" />
-                  <span>{savedSuccess ? "Saved!" : "Save Custom Order"}</span>
+                  {saving ? <Loader2Icon className="size-3.5 animate-spin" /> : <SaveIcon className="size-3.5" />}
+                  <span>{saving ? "Saving…" : "Save Custom Order"}</span>
                 </Button>
               </div>
             </CardContent>
@@ -281,10 +304,10 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-xs">
-              {inquiry.referenceImage ? (
+              {order.referenceImage ? (
                 <div className="relative aspect-square w-full overflow-hidden rounded-lg border bg-muted">
                   <Image
-                    src={inquiry.referenceImage}
+                    src={order.referenceImage}
                     alt="Customer reference design"
                     fill
                     sizes="(max-width: 768px) 100vw, 350px"
@@ -302,53 +325,53 @@ export function CustomOrderDetailsView({ inquiry: initialInquiry }: { inquiry: C
           {/* Customer Profile Card */}
           <Card className="border bg-card shadow-xs">
             <CardHeader className="pb-3">
-              <CardTitle className="font-heading text-base font-semibold flex items-center gap-2">
+              <CardTitle className="font-heading flex items-center gap-2 text-base font-semibold">
                 <UserIcon className="size-4 text-primary" />
                 Customer Contact
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-xs">
               <div className="flex flex-col gap-0.5">
-                <span className="text-[11px] text-muted-foreground uppercase font-semibold">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                   Full Name
                 </span>
-                <span className="font-medium text-sm text-foreground">
-                  {inquiry.customerName}
+                <span className="text-sm font-medium text-foreground">
+                  {order.customerName}
                 </span>
               </div>
 
               <div className="flex flex-col gap-0.5">
-                <span className="text-[11px] text-muted-foreground uppercase font-semibold">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                   Email Address
                 </span>
                 <a
-                  href={`mailto:${inquiry.customerEmail}`}
+                  href={`mailto:${order.customerEmail}`}
                   className="flex items-center gap-1.5 text-primary hover:underline"
                 >
                   <MailIcon className="size-3" />
-                  {inquiry.customerEmail}
+                  {order.customerEmail}
                 </a>
               </div>
 
               <div className="flex flex-col gap-0.5">
-                <span className="text-[11px] text-muted-foreground uppercase font-semibold">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                   Phone / WhatsApp
                 </span>
                 <a
-                  href={`tel:${inquiry.customerPhone}`}
+                  href={`tel:${order.customerPhone}`}
                   className="flex items-center gap-1.5 font-mono text-muted-foreground hover:text-foreground"
                 >
                   <PhoneIcon className="size-3" />
-                  {inquiry.customerPhone}
+                  {order.customerPhone}
                 </a>
               </div>
 
               <div className="flex flex-col gap-0.5 border-t pt-3">
-                <span className="text-[11px] text-muted-foreground uppercase font-semibold">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase">
                   Delivery Destination
                 </span>
-                <span className="text-muted-foreground">{inquiry.deliveryAddress}</span>
-                <span className="font-medium text-foreground">{inquiry.country}</span>
+                <span className="text-muted-foreground">{order.deliveryAddress || "—"}</span>
+                <span className="font-medium text-foreground">{order.country}</span>
               </div>
             </CardContent>
           </Card>

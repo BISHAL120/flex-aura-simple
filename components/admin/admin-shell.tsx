@@ -4,13 +4,29 @@ import * as React from "react"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
 import { AdminHeader } from "@/components/admin/admin-header"
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export interface AdminDashboardCounts {
+  pendingOrders: number
+  newCustomOrders: number
+}
+
+interface AdminShellProps {
+  children: React.ReactNode
+  customOrderCounts: {
+    total: number
+    openCount: number
+    inProductionCount: number
+  }
+}
+
+export function AdminShell({ children, customOrderCounts }: AdminShellProps) {
   return (
     <div className="flex min-h-screen bg-muted/20">
       {/* Desktop Sidebar (fixed/sticky) */}
       <div className="hidden lg:block lg:w-64 lg:shrink-0">
         <div className="fixed inset-y-0 z-40 flex w-64 flex-col">
-          <AdminSidebar />
+          <AdminSidebar
+            newCustomOrdersCount={customOrderCounts.openCount}
+          />
         </div>
       </div>
 

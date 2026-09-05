@@ -21,7 +21,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { initialOrders, initialCustomOrders } from "@/lib/admin-data"
+import { initialOrders } from "@/lib/admin-data"
 
 export const ADMIN_NAV_ITEMS = [
   {
@@ -89,25 +89,23 @@ export const ADMIN_NAV_ITEMS = [
 export function AdminSidebar({
   className,
   onNavigate,
+  newCustomOrdersCount = 0,
 }: {
   className?: string
   onNavigate?: () => void
+  newCustomOrdersCount?: number
 }) {
   const pathname = usePathname()
   const orders = initialOrders
-  const customOrders = initialCustomOrders
 
   const pendingOrdersCount = orders.filter(
     (o) => o.status === "pending" || o.status === "in-production"
   ).length
 
-  const newCustomOrdersCount = customOrders.filter(
-    (c) => c.status === "new" || c.status === "quoted"
-  ).length
-
   const getBadgeValue = (key: string | null) => {
     if (key === "pendingOrders") return pendingOrdersCount > 0 ? pendingOrdersCount : null
-    if (key === "newCustomOrders") return newCustomOrdersCount > 0 ? newCustomOrdersCount : null
+    if (key === "newCustomOrders")
+      return newCustomOrdersCount > 0 ? newCustomOrdersCount : null
     return null
   }
 

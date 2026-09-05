@@ -9,11 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/data"
-import { initialCustomOrders, type CustomOrderInquiry } from "@/lib/admin-data"
+import type { AdminCustomOrder } from "@/lib/admin-custom-orders-data"
 
-export function PendingCustomOrders() {
-  const customOrders: CustomOrderInquiry[] = initialCustomOrders
-  const pendingInquiries = customOrders.slice(0, 4)
+export function PendingCustomOrders({ orders }: { orders: AdminCustomOrder[] }) {
+  const pendingInquiries = orders.slice(0, 4)
 
   return (
     <Card className="flex flex-col border bg-card shadow-xs">
@@ -39,71 +38,78 @@ export function PendingCustomOrders() {
         </Button>
       </CardHeader>
       <CardContent className="divide-y p-0">
-        {pendingInquiries.map((inquiry) => (
-          <div
-            key={inquiry.id}
-            className="flex items-start justify-between gap-4 p-4 transition-colors hover:bg-muted/30"
-          >
-            <div className="flex items-start gap-3 min-w-0">
-              {inquiry.referenceImage ? (
-                <div className="relative size-12 shrink-0 overflow-hidden rounded-md border bg-muted">
-                  <Image
-                    src={inquiry.referenceImage}
-                    alt={inquiry.customerName}
-                    fill
-                    sizes="48px"
-                    className="object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground">
-                  <SparklesIcon className="size-5" />
-                </div>
-              )}
-              <div className="flex flex-col gap-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-xs text-foreground truncate">
-                    {inquiry.customerName}
-                  </span>
-                  <span className="text-[10px] font-mono text-muted-foreground">
-                    ({inquiry.inquiryNumber})
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground line-clamp-1">
-                  {inquiry.designRequirement}
-                </p>
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                  <span className="font-medium text-foreground">
-                    {inquiry.sizeOption === "custom"
-                      ? inquiry.customDimensions
-                      : inquiry.sizeOption}
-                  </span>
-                  {inquiry.withBacklitLed && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.2 text-amber-600 font-medium text-[10px]">
-                      <LightbulbIcon className="size-2.5" /> Backlit LED
+        {pendingInquiries.length > 0 ? (
+          pendingInquiries.map((inquiry) => (
+            <div
+              key={inquiry.id}
+              className="flex items-start justify-between gap-4 p-4 transition-colors hover:bg-muted/30"
+            >
+              <div className="flex items-start gap-3 min-w-0">
+                {inquiry.referenceImage ? (
+                  <div className="relative size-12 shrink-0 overflow-hidden rounded-md border bg-muted">
+                    <Image
+                      src={inquiry.referenceImage}
+                      alt={inquiry.customerName}
+                      fill
+                      sizes="48px"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+                    <SparklesIcon className="size-5" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-xs text-foreground truncate">
+                      {inquiry.customerName}
                     </span>
-                  )}
-                  <span>· {inquiry.country}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      ({inquiry.orderNumber})
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground line-clamp-1">
+                    {inquiry.designRequirement}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {inquiry.sizeOption === "custom"
+                        ? inquiry.customDimensions
+                        : inquiry.sizeOption}
+                    </span>
+                    {inquiry.withBacklitLed && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.2 text-[10px] font-medium text-amber-600">
+                        <LightbulbIcon className="size-2.5" /> Backlit LED
+                      </span>
+                    )}
+                    <span>· {inquiry.country}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex flex-col items-end gap-1.5 shrink-0">
-              {inquiry.quotedPrice ? (
-                <span className="text-sm font-bold text-foreground">
-                  {formatPrice(inquiry.quotedPrice)}
-                </span>
-              ) : (
-                <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">
-                  Needs Pricing
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                {inquiry.quotedPrice != null ? (
+                  <span className="text-sm font-bold text-foreground">
+                    {formatPrice(inquiry.quotedPrice / 100)}
+                  </span>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/20">
+                    Needs Pricing
+                  </Badge>
+                )}
+                <Badge variant="secondary" className="text-[10px] capitalize">
+                  {inquiry.status}
                 </Badge>
-              )}
-              <Badge variant="secondary" className="capitalize text-[10px]">
-                {inquiry.status}
-              </Badge>
+              </div>
             </div>
+          ))
+        ) : (
+          <div className="flex flex-col items-center gap-2 p-8 text-center text-xs text-muted-foreground">
+            <SparklesIcon className="size-5" />
+            <p>No open custom orders right now.</p>
           </div>
-        ))}
+        )}
       </CardContent>
     </Card>
   )

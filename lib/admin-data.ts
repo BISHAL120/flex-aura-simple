@@ -42,28 +42,6 @@ export type AdminOrder = {
   createdAt: string
 }
 
-export type CustomOrderStatus = "new" | "quoted" | "approved" | "in-production" | "completed" | "declined"
-
-export type CustomOrderInquiry = {
-  id: string
-  inquiryNumber: string
-  customerName: string
-  customerEmail: string
-  customerPhone: string
-  deliveryAddress: string
-  country: string
-  designRequirement: string
-  sizeOption: string
-  customDimensions?: string
-  withBacklitLed: boolean
-  specialRequest?: string
-  referenceImage?: string
-  quotedPrice?: number
-  status: CustomOrderStatus
-  createdAt: string
-  notes?: string
-}
-
 export type StoreSettings = {
   storeName: string
   contactEmail: string
@@ -278,84 +256,6 @@ export const initialOrders: AdminOrder[] = [
     paymentMethod: "Credit Card (Amex ···· 3001)",
     trackingNumber: "FEDEX-9988112344",
     createdAt: "2026-08-27T16:00:00Z",
-  },
-]
-
-export const initialCustomOrders: CustomOrderInquiry[] = [
-  {
-    id: "cust-201",
-    inquiryNumber: "CUST-9011",
-    customerName: "Tariq Al-Mansoor",
-    customerEmail: "tariq.mansoor@almansoor.ae",
-    customerPhone: "+971 50 123 4567",
-    deliveryAddress: "Villa 18, Palm Jumeirah, Dubai",
-    country: "United Arab Emirates",
-    designRequirement:
-      "Custom laser cut of a 1989 Nissan Skyline R32 GT-R in Nismo S-Tune aero trim with illuminated LED taillights.",
-    sizeOption: "custom",
-    customDimensions: '48" × 20"',
-    withBacklitLed: true,
-    specialRequest: "Needs 3000K warm white LED with a wireless remote dimmer.",
-    referenceImage: undefined,
-    quotedPrice: 245,
-    status: "quoted",
-    createdAt: "2026-08-30T11:15:00Z",
-    notes: "Sent preliminary WhatsApp mockup on Aug 30.",
-  },
-  {
-    id: "cust-202",
-    inquiryNumber: "CUST-9012",
-    customerName: "Jessica & Marcus Sterling",
-    customerEmail: "marcus.sterling@gmail.com",
-    customerPhone: "+1 (415) 889-1234",
-    deliveryAddress: "450 Sutter St, Suite 800, San Francisco, CA 94108",
-    country: "United States",
-    designRequirement:
-      "Wedding date and entwined initials monogram 'M & J — 10.14.2026' with floral perimeter scrollwork.",
-    sizeOption: "24x18",
-    withBacklitLed: true,
-    specialRequest: "Gold brass powder coat if possible, otherwise matte black.",
-    referenceImage: undefined,
-    quotedPrice: 180,
-    status: "approved",
-    createdAt: "2026-08-29T15:40:00Z",
-    notes: "Deposit received, ready for fibre laser cutting queue.",
-  },
-  {
-    id: "cust-203",
-    inquiryNumber: "CUST-9013",
-    customerName: "Apex Performance Garage",
-    customerEmail: "service@apexperformance.co.uk",
-    customerPhone: "+44 7700 900123",
-    deliveryAddress: "Unit 4, Silverstone Industrial Park, Towcester",
-    country: "United Kingdom",
-    designRequirement:
-      "Large workshop entrance logo with dual turbochargers flanking the company shield.",
-    sizeOption: "36x24",
-    withBacklitLed: true,
-    specialRequest: "Heavy duty 3mm steel preferred for exterior covered entryway.",
-    referenceImage: undefined,
-    quotedPrice: 320,
-    status: "in-production",
-    createdAt: "2026-08-28T10:00:00Z",
-  },
-  {
-    id: "cust-204",
-    inquiryNumber: "CUST-9014",
-    customerName: "Rahul Sharma",
-    customerEmail: "rahul.sharma@cybercity.in",
-    customerPhone: "+91 98100 23456",
-    deliveryAddress: "Tower B, DLF Cyber City, Phase 2, Gurugram, Haryana 122002",
-    country: "India",
-    designRequirement:
-      "Royal Enfield Continental GT 650 cafe racer silhouette with rider helmet outline.",
-    sizeOption: "30x20",
-    withBacklitLed: false,
-    specialRequest: "Standard black powder coat with mounting spacers.",
-    referenceImage: undefined,
-    quotedPrice: 135,
-    status: "new",
-    createdAt: "2026-08-30T17:20:00Z",
   },
 ]
 

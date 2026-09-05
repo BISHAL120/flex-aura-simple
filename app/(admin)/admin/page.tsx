@@ -9,13 +9,24 @@ import { RevenueChart } from "@/components/admin/overview/revenue-chart"
 import { CategoryPieChart } from "@/components/admin/overview/category-pie-chart"
 import { RecentOrdersTable } from "@/components/admin/overview/recent-orders-table"
 import { PendingCustomOrders } from "@/components/admin/overview/pending-custom-orders"
+import {
+  getCustomOrderDashboardCounts,
+  getRecentOpenCustomOrders,
+} from "@/lib/data-layer/admin/custom-orders/custom-order-data-layer"
+import { mapCustomOrdersToAdminCustomOrders } from "@/lib/data-layer/admin/custom-orders/custom-order-mapper"
 
 export const metadata: Metadata = {
   title: "Admin Overview — Flex Aura",
   description: "Administrative control center for Flex Aura metal art and custom backlit fabrication.",
 }
 
-export default function AdminOverviewPage() {
+export default async function AdminOverviewPage() {
+  const [customOrderCounts, recentCustomOrders] = await Promise.all([
+    getCustomOrderDashboardCounts(),
+    getRecentOpenCustomOrders(4),
+  ])
+  const recentCustom = mapCustomOrdersToAdminCustomOrders(recentCustomOrders)
+
   return (
     <div className="flex flex-col gap-6">
       {/* Top Banner / Actions Bar */}
@@ -53,7 +64,7 @@ export default function AdminOverviewPage() {
       </div>
 
       {/* KPI Cards */}
-      <KPICards />
+      <KPICards customOrderCounts={customOrderCounts} />
 
       {/* Charts Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -68,7 +79,7 @@ export default function AdminOverviewPage() {
       {/* Tables Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
         <RecentOrdersTable />
-        <PendingCustomOrders />
+        <PendingCustomOrders orders={recentCustom} />
       </div>
     </div>
   )

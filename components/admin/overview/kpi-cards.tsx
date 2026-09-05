@@ -12,11 +12,18 @@ import {
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/data"
-import { initialOrders, initialCustomOrders, type AdminOrder, type CustomOrderInquiry } from "@/lib/admin-data"
+import { initialOrders, type AdminOrder } from "@/lib/admin-data"
 
-export function KPICards() {
+interface KPICardsProps {
+  customOrderCounts: {
+    total: number
+    openCount: number
+    inProductionCount: number
+  }
+}
+
+export function KPICards({ customOrderCounts }: KPICardsProps) {
   const orders: AdminOrder[] = initialOrders
-  const customOrders: CustomOrderInquiry[] = initialCustomOrders
 
   // Calculate live dynamic metrics from store
   const totalRevenue = orders.reduce((sum: number, order: AdminOrder) => sum + order.total, 0)
@@ -24,7 +31,7 @@ export function KPICards() {
   const pendingProduction = orders.filter(
     (o: AdminOrder) => o.status === "in-production" || o.status === "powder-coating" || o.status === "processing"
   ).length
-  const pendingCustomOrders = customOrders.filter((c: CustomOrderInquiry) => c.status === "new" || c.status === "quoted").length
+  const pendingCustomOrders = customOrderCounts.openCount
 
   const kpis = [
     {
@@ -47,7 +54,7 @@ export function KPICards() {
     },
     {
       title: "Custom Orders",
-      value: customOrders.length.toString(),
+      value: customOrderCounts.total.toString(),
       subtitle: `${pendingCustomOrders} pending design requests`,
       trend: pendingCustomOrders > 0 ? "action" : "neutral",
       icon: SparklesIcon,

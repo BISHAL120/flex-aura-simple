@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ImagePlusIcon, Loader2Icon, SendIcon, Trash2Icon } from "lucide-react"
+import { AlertCircleIcon, CheckCircle2Icon, ImagePlusIcon, Loader2Icon, SendIcon, Trash2Icon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,12 @@ import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/utils"
 import { customOrderSchema, type CustomOrderFormValues } from "@/lib/validators"
+import {
+  submitCustomOrder,
+  uploadReferenceImage,
+  validateReferenceImage,
+  type PublicCustomOrderResult,
+} from "@/lib/data-layer/admin/custom-orders/custom-order-actions"
 
 const SIZE_OPTIONS = [
   { value: "12x12", label: '12" × 12"' },
@@ -26,8 +32,8 @@ const SIZE_OPTIONS = [
 ] as const
 
 const COUNTRIES = [
-  "India",
   "Bangladesh",
+  "India",
   "United Kingdom",
   "United States",
   "Other",
@@ -37,6 +43,7 @@ export function CustomOrderForm() {
   const [image, setImage] = React.useState<File | null>(null)
   const [imagePreview, setImagePreview] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
+  const [result, setResult] = React.useState<PublicCustomOrderResult | null>(null)
 
   const {
     register,
@@ -51,11 +58,13 @@ export function CustomOrderForm() {
       customerName: "",
       customerEmail: "",
       customerPhone: "",
-      country: "India",
+      country: "Bangladesh",
+      deliveryAddress: "",
       designRequirement: "",
       sizeOption: "30x20",
       customDimensions: "",
       withBacklitLed: false,
+      specialRequest: "",
       referenceImage: "",
     },
   })
@@ -73,57 +82,92 @@ export function CustomOrderForm() {
   function handleImageChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
+
+    const validationError = validateReferenceImage(file)
+    if (validationError) {
+      toast.add({
+        type: "error",
+        title: "Invalid Image",
+        description: validationError,
+      })
+      return
+    }
+
     setImage(file)
     const preview = URL.createObjectURL(file)
     setImagePreview(preview)
-    setValue("referenceImage", preview)
+    // Note: the blob preview is intentionally NOT written into the form value —
+    // the uploaded Firebase URL is sent with the payload on submit.
   }
 
-  function onFormSubmit(data: CustomOrderFormValues) {
+  async function onFormSubmit(data: CustomOrderFormValues) {
     if (pending) return
     setPending(true)
+    setResult(null)
 
-    const size =
-      data.sizeOption === "custom"
-        ? data.customDimensions?.trim() || "Custom size"
-        : SIZE_OPTIONS.find((o) => o.value === data.sizeOption)?.label ?? data.sizeOption
+    try {
+      // Upload a locally-picked reference image first; only after it succeeds
+      // do we persist the order, so a failed upload never creates an order
+      // without its reference art.
+      let referenceImage: string | undefined
+      if (image) {
+        try {
+          const validationError = validateReferenceImage(image)
+          if (validationError) {
+            toast.add({
+              type: "error",
+              title: "Invalid Image",
+              description: validationError,
+            })
+            return
+          }
+          referenceImage = await uploadReferenceImage(image)
+        } catch {
+          toast.add({
+            type: "error",
+            title: "Image Upload Failed",
+            description: "We couldn't upload your reference image. Please try again.",
+          })
+          return
+        }
+      }
 
-    const details = [
-      `Name: ${data.customerName}`,
-      `Email: ${data.customerEmail}`,
-      `Phone: ${data.customerPhone}`,
-      `Country: ${data.country}`,
-      `Requirement: ${data.designRequirement}`,
-      `Size: ${size}`,
-      `Backlit: ${data.withBacklitLed ? "Yes (with LED light)" : "No (plain metal)"}`,
-    ]
+      const selectedSize =
+        data.sizeOption === "custom"
+          ? "custom"
+          : SIZE_OPTIONS.find((o) => o.value === data.sizeOption)?.label ?? data.sizeOption
 
-    if (image) {
-      details.push(`Reference image attached: ${image.name}`)
-    }
+      const payload = {
+        ...data,
+        sizeOption: selectedSize,
+        referenceImage: referenceImage || undefined,
+        deliveryAddress: data.deliveryAddress?.trim() || undefined,
+        specialRequest: data.specialRequest?.trim() || undefined,
+        customDimensions:
+          data.sizeOption === "custom" ? data.customDimensions?.trim() : undefined,
+      }
+      const res = await submitCustomOrder(payload)
+      setResult(res)
 
-    const message = encodeURIComponent(details.join("\n"))
-    const waLink = `https://wa.me/8801623939834?text=${message}`
-    const mailtoLink = `mailto:hello@flexaurametal.com?subject=${encodeURIComponent(
-      "Custom Metal Art Order Request"
-    )}&body=${message}`
-
-    window.open(waLink, "_blank", "noopener,noreferrer")
-    window.setTimeout(() => {
-      window.open(mailtoLink, "_blank", "noopener,noreferrer")
-    }, 500)
-
-    window.setTimeout(() => {
+      if (res.ok) {
+        toast.add({
+          type: "success",
+          title: "Order request submitted",
+          description: `Your request ${res.order.orderNumber} is in our queue.`,
+        })
+        reset()
+        setImage(null)
+        setImagePreview(null)
+      } else if (!res.ok && !("duplicate" in res)) {
+        toast.add({
+          type: "error",
+          title: "Submission Failed",
+          description: res.message,
+        })
+      }
+    } finally {
       setPending(false)
-      reset()
-      setImage(null)
-      setImagePreview(null)
-      toast.add({
-        type: "success",
-        title: "Order request ready to send",
-        description: "We've prepared WhatsApp with your custom order details.",
-      })
-    }, 800)
+    }
   }
 
   function onFormError() {
@@ -134,11 +178,69 @@ export function CustomOrderForm() {
     })
   }
 
+  function resetAfterSuccess() {
+    setResult(null)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
   return (
     <form
       onSubmit={handleSubmit(onFormSubmit, onFormError)}
       className="flex flex-col gap-6 rounded-lg border bg-card p-5 sm:p-6"
     >
+      {/* Submission result banners */}
+      {result && "ok" in result && result.ok && (
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
+          <CheckCircle2Icon className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+              Custom order request submitted!
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Your request number is{" "}
+              <span className="font-mono font-semibold text-foreground">
+                {result.order.orderNumber}
+              </span>
+              . Our workshop team will review your design and contact you on
+              WhatsApp / email with a quote shortly.
+            </p>
+            <button
+              type="button"
+              onClick={resetAfterSuccess}
+              className="mt-1 w-fit text-xs font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Submit another custom order
+            </button>
+          </div>
+        </div>
+      )}
+
+      {result && "duplicate" in result && result.duplicate && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          <AlertCircleIcon className="mt-0.5 size-5 shrink-0 text-amber-600" />
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold text-amber-800 dark:text-amber-300">
+              You already have a custom order in progress
+            </p>
+            <p className="text-xs text-muted-foreground">
+              We found an existing request for this phone / email — order{" "}
+              <span className="font-mono font-semibold text-foreground">
+                {result.order.orderNumber}
+              </span>{" "}
+              is still in the pipeline. Our team will reach out to you, so you
+              don&apos;t need to submit it again.
+            </p>
+            <button
+              type="button"
+              onClick={resetAfterSuccess}
+              className="mt-1 w-fit text-xs font-medium text-primary underline-offset-2 hover:underline"
+            >
+              I&apos;d still like to place a new request
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Contact details */}
       <fieldset className="flex flex-col gap-4">
         <legend className="text-sm font-medium">Contact details</legend>
@@ -177,7 +279,7 @@ export function CustomOrderForm() {
               id="co-phone"
               type="tel"
               autoComplete="tel"
-              placeholder="+91 98765 43210"
+              placeholder="+880 1XXX-XXXXXX"
               {...register("customerPhone")}
             />
             {errors.customerPhone && (
@@ -200,6 +302,19 @@ export function CustomOrderForm() {
             </datalist>
             {errors.country && <FieldError errors={[{ message: errors.country.message }]} />}
           </div>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="co-address">Delivery address</Label>
+          <Input
+            id="co-address"
+            autoComplete="street-address"
+            placeholder="House, road, area, district (needed for your quote & delivery)"
+            {...register("deliveryAddress")}
+          />
+          {errors.deliveryAddress && (
+            <FieldError errors={[{ message: errors.deliveryAddress.message }]} />
+          )}
         </div>
       </fieldset>
 
@@ -250,7 +365,6 @@ export function CustomOrderForm() {
                   onClick={() => {
                     setImage(null)
                     setImagePreview(null)
-                    setValue("referenceImage", "")
                   }}
                   className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
                 >
@@ -315,22 +429,33 @@ export function CustomOrderForm() {
         </div>
       </fieldset>
 
+      {/* Special request */}
+      <fieldset className="flex flex-col gap-3">
+        <legend className="text-sm font-medium">Anything else? (optional)</legend>
+        <Textarea
+          id="co-special"
+          rows={2}
+          placeholder="Special finish, mounting preference, deadline, or any other notes for the workshop…"
+          {...register("specialRequest")}
+        />
+      </fieldset>
+
       <Button type="submit" size="lg" disabled={pending} className="mt-1">
         {pending ? (
           <>
             <Loader2Icon className="animate-spin" />
-            Preparing order request…
+            Submitting your request…
           </>
         ) : (
           <>
             <SendIcon />
-            Send Custom Order Request
+            Submit Custom Order Request
           </>
         )}
       </Button>
       <p className="text-center text-xs text-muted-foreground">
-        Submitting opens WhatsApp with your order details. You can also send them
-        by email to hello@flexaurametal.com.
+        We&apos;ll review your request and confirm a quote on WhatsApp or email
+        before we start cutting.
       </p>
     </form>
   )

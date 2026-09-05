@@ -1,28 +1,37 @@
-"use client"
-
-import * as React from "react"
-import { useParams } from "next/navigation"
+import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeftIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { initialCustomOrders } from "@/lib/admin-data"
 import { CustomOrderDetailsView } from "@/components/admin/custom-orders/custom-order-details-view"
+import {
+  getCustomOrderById,
+  getCustomOrderByOrderNumber,
+} from "@/lib/data-layer/admin/custom-orders/custom-order-data-layer"
+import { mapCustomOrderToAdminCustomOrder } from "@/lib/data-layer/admin/custom-orders/custom-order-mapper"
 
-export default function AdminCustomOrderDetailsPage() {
-  const params = useParams()
-  const id = params?.id as string
+export const metadata: Metadata = {
+  title: "Custom Order Details — Flex Aura Admin",
+  description: "Review and update a custom laser-cut art order's quote, status, and workshop notes.",
+}
 
-  const inquiry = React.useMemo(() => {
-    return initialCustomOrders.find((c) => c.id === id || c.inquiryNumber.toLowerCase() === id?.toLowerCase())
-  }, [id])
+export default async function AdminCustomOrderDetailsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
 
-  if (!inquiry) {
+  // The URL may reference either the Mongo id or the human order number.
+  const dbOrder =
+    (await getCustomOrderById(id)) ?? (await getCustomOrderByOrderNumber(id))
+
+  if (!dbOrder) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-        <h2 className="font-heading text-xl font-bold">Custom Inquiry Not Found</h2>
-        <p className="text-xs text-muted-foreground max-w-sm">
-          No custom metal art inquiry matching &quot;{id}&quot; was found in the workshop records.
+        <h2 className="font-heading text-xl font-bold">Custom Order Not Found</h2>
+        <p className="max-w-sm text-xs text-muted-foreground">
+          No custom metal art order matching &quot;{id}&quot; was found in the workshop records.
         </p>
         <Button
           variant="outline"
@@ -37,5 +46,10 @@ export default function AdminCustomOrderDetailsPage() {
     )
   }
 
-  return <CustomOrderDetailsView key={inquiry.id} inquiry={inquiry} />
+  return (
+    <CustomOrderDetailsView
+      key={dbOrder.id}
+      order={mapCustomOrderToAdminCustomOrder(dbOrder)}
+    />
+  )
 }
