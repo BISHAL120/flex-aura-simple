@@ -14,6 +14,8 @@ export type AdminProduct = {
   image: string
   images: string[]
   badge?: string
+  isBestSeller: boolean
+  isNewArrival: boolean
   variants: AdminProductVariant[]
   rating: number
   reviewCount: number

@@ -175,6 +175,8 @@ export interface ProductWriteData {
   image: string
   images?: string[]
   badge?: string | null
+  isBestSeller?: boolean
+  isNewArrival?: boolean
   tags: string[]
   rating?: number
   reviewCount?: number
@@ -194,6 +196,8 @@ export const createProduct = async (data: ProductWriteData) => {
         image: data.image,
         images: data.images ?? [],
         badge: data.badge ?? null,
+        isBestSeller: data.isBestSeller ?? false,
+        isNewArrival: data.isNewArrival ?? false,
         tags: data.tags,
         rating: data.rating ?? 0,
         reviewCount: data.reviewCount ?? 0,
@@ -228,6 +232,8 @@ export const updateProduct = async (id: string, data: ProductWriteData) => {
           image: data.image,
           images: data.images ?? [],
           badge: data.badge ?? null,
+          isBestSeller: data.isBestSeller ?? false,
+          isNewArrival: data.isNewArrival ?? false,
           tags: data.tags,
           rating: data.rating ?? 0,
           reviewCount: data.reviewCount ?? 0,
@@ -322,7 +328,7 @@ export const getProductCountsByCategoryIds = async (
 export const getBestSellers = async (limit = 4) => {
   try {
     return await db.product.findMany({
-      where: { isDeleted: false, isActive: true, tags: { has: "best-seller" } },
+      where: { isDeleted: false, isActive: true, isBestSeller: true },
       include: productInclude,
       take: limit,
       orderBy: { reviewCount: "desc" },
@@ -336,7 +342,7 @@ export const getBestSellers = async (limit = 4) => {
 export const getNewArrivals = async (limit = 4) => {
   try {
     return await db.product.findMany({
-      where: { isDeleted: false, isActive: true, tags: { has: "new-arrival" } },
+      where: { isDeleted: false, isActive: true, isNewArrival: true },
       include: productInclude,
       take: limit,
       orderBy: { createdAt: "desc" },
@@ -392,8 +398,8 @@ export const getRelatedProducts = async (product: ProductWithRelations, limit = 
       }))
       .sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score
-        const aBest = a.product.tags.includes("best-seller") ? 1 : 0
-        const bBest = b.product.tags.includes("best-seller") ? 1 : 0
+        const aBest = a.product.isBestSeller ? 1 : 0
+        const bBest = b.product.isBestSeller ? 1 : 0
         return bBest - aBest
       })
 

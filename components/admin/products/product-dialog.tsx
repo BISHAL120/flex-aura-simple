@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
 import { productSchema, slugify, type ProductFormInput } from "@/lib/validators"
@@ -77,6 +78,8 @@ export function ProductDialog({
       tags: ["car", "best-seller"],
       image: "",
       images: [""],
+      isBestSeller: false,
+      isNewArrival: false,
       variants: [
         { name: '24" × 15"', price: 75, compareAtPrice: 95 },
         { name: '30" × 18.5"', price: 89, compareAtPrice: 109 },
@@ -95,6 +98,8 @@ export function ProductDialog({
 
   const watchedImage = watch("image")
   const watchedPrice = watch("price")
+  const watchedIsBestSeller = watch("isBestSeller")
+  const watchedIsNewArrival = watch("isNewArrival")
 
   // Synchronize when opened or productToEdit changes
   React.useEffect(() => {
@@ -114,6 +119,8 @@ export function ProductDialog({
           tags: productToEdit.tags,
           image: productToEdit.image,
           images: productToEdit.images?.length ? productToEdit.images : [productToEdit.image],
+          isBestSeller: productToEdit.isBestSeller ?? false,
+          isNewArrival: productToEdit.isNewArrival ?? false,
           variants: productToEdit.variants?.length ? productToEdit.variants : [{ name: "Standard", price: productToEdit.price }],
           rating: productToEdit.rating ?? 5,
           reviewCount: productToEdit.reviewCount ?? 0,
@@ -131,6 +138,8 @@ export function ProductDialog({
           tags: ["car", "best-seller"],
           image: "",
           images: [""],
+          isBestSeller: false,
+          isNewArrival: false,
           variants: [
             { name: '24" × 15"', price: 75, compareAtPrice: 95 },
             { name: '30" × 18.5"', price: 89, compareAtPrice: 109 },
@@ -189,6 +198,7 @@ export function ProductDialog({
     // submitted so nothing is permanently uploaded if the user cancels.
     setPickedFile(file)
     setPickedPreview(URL.createObjectURL(file))
+    setValue("image", file.name)
   }
 
   async function onFormSubmit(data: ProductFormInput) {
@@ -425,6 +435,45 @@ export function ProductDialog({
             {errors.tags && <FieldError errors={[{ message: errors.tags.message }]} />}
           </div>
 
+          {/* Storefront Placement Toggles */}
+          <div className="flex flex-col gap-2 rounded-lg border p-3 bg-muted/20">
+            <Label className="text-xs font-semibold">Storefront Placement</Label>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-medium text-foreground">
+                  Fan Favourite (Best Seller)
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Show in the homepage best-sellers section
+                </span>
+              </div>
+              <Switch
+                checked={watchedIsBestSeller}
+                onCheckedChange={(checked) =>
+                  setValue("isBestSeller", Boolean(checked), { shouldValidate: true })
+                }
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-medium text-foreground">
+                  New Arrival / New Drop
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Show in the homepage new arrivals section
+                </span>
+              </div>
+              <Switch
+                checked={watchedIsNewArrival}
+                onCheckedChange={(checked) =>
+                  setValue("isNewArrival", Boolean(checked), { shouldValidate: true })
+                }
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
           {/* Image Picker */}
           <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3">
             <Label className="text-xs font-medium">Primary Artwork Image</Label>
@@ -460,7 +509,7 @@ export function ProductDialog({
                 <Input
                   value={customImageUrl}
                   onChange={handleCustomUrlChange}
-                  placeholder="https://... image URL"
+                  placeholder="pexels.com img only"
                   className="h-8 text-xs font-mono"
                   disabled={isSubmitting}
                 />

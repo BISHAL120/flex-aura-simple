@@ -16,6 +16,8 @@ export function mapProductToAdminProduct(product: ProductWithRelations): AdminPr
     image: product.image,
     images: product.images,
     badge: product.badge ?? undefined,
+    isBestSeller: product.isBestSeller,
+    isNewArrival: product.isNewArrival,
     variants: product.variants.map(
       (v): AdminProductVariant => ({
         name: v.name,
@@ -55,6 +57,8 @@ export function mapProductToStoreProduct(product: ProductWithRelations) {
     image: product.image,
     images: product.images,
     badge: product.badge ?? undefined,
+    isBestSeller: product.isBestSeller,
+    isNewArrival: product.isNewArrival,
     variants: product.variants.map((v) => ({
       name: v.name,
       price: fromCents(v.price),

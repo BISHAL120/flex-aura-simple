@@ -344,7 +344,7 @@ export function CategoryDialog({
                 <Input
                   value={customImageUrl}
                   onChange={handleCustomUrlChange}
-                  placeholder="https://... image URL"
+                  placeholder="pixels.com img only"
                   className="h-8 text-xs font-mono"
                   disabled={isSubmitting}
                 />

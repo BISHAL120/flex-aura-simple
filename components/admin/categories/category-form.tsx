@@ -1,38 +1,37 @@
 "use client"
 
-import * as React from "react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
-import Link from "next/link"
-import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   ArrowLeftIcon,
-  SaveIcon,
   EyeIcon,
   Loader2Icon,
-  UploadIcon,
+  UploadIcon
 } from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import * as React from "react"
+import { useForm } from "react-hook-form"
 
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldError } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/components/ui/toast"
-import { categorySchema, slugify, type CategoryFormValues } from "@/lib/validators"
+import type { AdminCategory } from "@/lib/admin-categories-data"
 import {
+  checkCategorySlug,
   createCategory,
   patchCategory,
   uploadCategoryImage,
-  checkCategorySlug,
   validateCategoryImage,
 } from "@/lib/data-layer/admin/categories/category-actions"
-import type { AdminCategory } from "@/lib/admin-categories-data"
 import { deleteFirebaseImage, deleteFirebaseImageSafe } from "@/lib/firebase/deleteImage"
+import { categorySchema, slugify, type CategoryFormValues } from "@/lib/validators"
 
 interface CategoryFormProps {
   category?: AdminCategory | null
@@ -71,10 +70,8 @@ export function CategoryForm({ category, mode, productCount = 0 }: CategoryFormP
   })
 
   const watchedName = watch("name")
-  const watchedImage = watch("image")
   const watchedDescription = watch("description")
   const watchedFeatured = watch("featured")
-  const watchedTags = watch("tags")
 
   function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
@@ -123,6 +120,7 @@ export function CategoryForm({ category, mode, productCount = 0 }: CategoryFormP
     // submitted so nothing is permanently uploaded if the user cancels.
     setPickedFile(file)
     setPickedPreview(URL.createObjectURL(file))
+    setValue("image", file.name)
   }
 
   // Count of products currently assigned to this category (server-provided).
@@ -380,7 +378,7 @@ export function CategoryForm({ category, mode, productCount = 0 }: CategoryFormP
             <CardContent className="flex flex-col gap-4 text-xs">
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg border bg-muted">
                 <Image
-                  src={pickedPreview || watchedImage || ""}
+                  src={pickedPreview || ""}
                   alt={watchedName || "Category banner"}
                   fill
                   sizes="(max-width: 768px) 100vw, 350px"
@@ -415,7 +413,7 @@ export function CategoryForm({ category, mode, productCount = 0 }: CategoryFormP
                   id="cat-custom-url"
                   value={customImageUrl}
                   onChange={handleCustomImageUrlChange}
-                  placeholder="https://... image URL"
+                  placeholder="pixels.com img only"
                   className="h-8 text-xs font-mono"
                   disabled={isSubmitting}
                 />
@@ -436,7 +434,7 @@ export function CategoryForm({ category, mode, productCount = 0 }: CategoryFormP
               <div className="flex flex-col overflow-hidden rounded-lg border bg-card shadow-xs">
                 <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
                   <Image
-                    src={watchedImage || ""}
+                    src={pickedPreview || ""}
                     alt={watchedName || "Preview"}
                     fill
                     sizes="300px"

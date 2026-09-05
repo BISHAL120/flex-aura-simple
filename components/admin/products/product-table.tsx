@@ -1,24 +1,27 @@
 "use client"
 
-import * as React from "react"
-import Link from "next/link"
-import Image from "next/image"
-import { useRouter } from "next/navigation"
 import {
-  PlusIcon,
-  SearchIcon,
   EditIcon,
-  Trash2Icon,
   ExternalLinkIcon,
-  SparklesIcon,
-  SlidersHorizontalIcon,
-  RotateCcwIcon,
-  TrashIcon,
   Loader2Icon,
+  PlusIcon,
+  RotateCcwIcon,
+  SearchIcon,
+  SlidersHorizontalIcon,
+  SparklesIcon,
+  Trash2Icon,
+  TrashIcon,
 } from "lucide-react"
+import Image from "next/image"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import * as React from "react"
 
-import { Button } from "@/components/ui/button"
+import { DataPagination } from "@/components/admin/common/data-pagination"
+import { ProductDeleteDialog } from "@/components/admin/products/product-delete-dialog"
+import { ProductDialog } from "@/components/admin/products/product-dialog"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -28,20 +31,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatPrice } from "@/lib/data"
-import type { AdminProduct, AdminBadgeCount } from "@/lib/admin-products-data"
 import type { AdminCategory } from "@/lib/admin-categories-data"
-import type { ProductSort } from "@/lib/data-layer/admin/products/product-data-layer"
-import { ProductDialog } from "@/components/admin/products/product-dialog"
-import { ProductDeleteDialog } from "@/components/admin/products/product-delete-dialog"
-import { DataPagination } from "@/components/admin/common/data-pagination"
+import type { AdminBadgeCount, AdminProduct } from "@/lib/admin-products-data"
+import { formatPrice } from "@/lib/data"
 import {
   deleteProduct,
-  restoreProduct,
   permanentDeleteProduct,
+  restoreProduct,
 } from "@/lib/data-layer/admin/products/product-actions"
-import { showError, showSuccess } from "@/lib/toast"
+import type { ProductSort } from "@/lib/data-layer/admin/products/product-data-layer"
 import { deleteFirebaseImage } from "@/lib/firebase/deleteImage"
+import { showError, showSuccess } from "@/lib/toast"
 
 const SEARCH_DEBOUNCE_MS = 500
 const DEFAULT_PAGE_SIZE = 8
@@ -251,13 +251,15 @@ export function ProductTable({
     try {
       await permanentDeleteProduct(product.id)
 
-      // Remove the Firebase image now that the DB record is gone. Local
+      // Remove every Firebase image now that the DB record is gone. Local
       // images and missing Firebase objects are treated as success.
-      if (product.image.startsWith("https://")) {
-        try {
-          await deleteFirebaseImage(product.image)
-        } catch (err) {
-          console.error("Error deleting product image:", err)
+      for (const url of [product.image, ...(product.images ?? [])]) {
+        if (url.startsWith("https://")) {
+          try {
+            await deleteFirebaseImage(url)
+          } catch (err) {
+            console.error("Error deleting product image:", err)
+          }
         }
       }
 

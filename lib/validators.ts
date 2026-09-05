@@ -45,6 +45,8 @@ export const productSchema = z.object({
   image: z.string().min(1, "Main product image is required"),
   images: z.array(z.string()),
   badge: z.string().optional(),
+  isBestSeller: z.boolean().default(false),
+  isNewArrival: z.boolean().default(false),
   tags: z.array(z.string()).min(1, "At least one category tag is required"),
   variants: z.array(productVariantSchema).min(1, "At least one size variant is required"),
   rating: z.number().min(0).max(5),

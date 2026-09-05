@@ -129,6 +129,8 @@ model Product {
   image          String
   images         String[]         @default([])
   badge          String?
+  isBestSeller   Boolean          @default(false) @map("isBestSeller")
+  isNewArrival   Boolean          @default(false) @map("isNewArrival")
   tags           String[]         @default([])
   rating         Float            @default(0)
   reviewCount    Int              @default(0)

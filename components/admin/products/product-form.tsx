@@ -13,6 +13,7 @@ import {
   EyeIcon,
   Loader2Icon,
   UploadIcon,
+  Image as ImageIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -20,11 +21,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FieldError } from "@/components/ui/field"
 import { toast } from "@/components/ui/toast"
 import { formatPrice } from "@/lib/data"
-import { productSchema, slugify, type ProductFormInput } from "@/lib/validators"
+import { productSchema, slugify, isSafeUrl, type ProductFormInput } from "@/lib/validators"
 import {
   createProduct,
   patchProduct,
@@ -34,7 +36,7 @@ import {
 } from "@/lib/data-layer/admin/products/product-actions"
 import type { AdminProduct } from "@/lib/admin-products-data"
 import type { AdminCategory } from "@/lib/admin-categories-data"
-import { deleteFirebaseImage, deleteFirebaseImageSafe } from "@/lib/firebase/deleteImage"
+import { deleteFirebaseImageSafe } from "@/lib/firebase/deleteImage"
 
 const BADGE_OPTIONS = [
   "None",
@@ -51,6 +53,16 @@ interface ProductFormProps {
   mode: "create" | "edit"
 }
 
+/** Gallery image pending or confirmed: a local file (uploaded on submit) or an
+ * already-resolved URL (existing DB image or a custom URL the admin typed). */
+type GalleryItem =
+  | { key: string; kind: "file"; file: File; preview: string }
+  | { key: string; kind: "url"; url: string }
+
+function makeGalleryKey() {
+  return crypto.randomUUID()
+}
+
 export function ProductForm({ product, categories, mode }: ProductFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -58,6 +70,13 @@ export function ProductForm({ product, categories, mode }: ProductFormProps) {
   const [pickedFile, setPickedFile] = React.useState<File | null>(null)
   const [pickedPreview, setPickedPreview] = React.useState<string | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [galleryItems, setGalleryItems] = React.useState<GalleryItem[]>(
+    (product?.images ?? [])
+      .filter((url) => url !== product?.image)
+      .map((url) => ({ key: url, kind: "url", url }))
+  )
+  const [galleryUrlInput, setGalleryUrlInput] = React.useState("")
+  const galleryFileInputRef = React.useRef<HTMLInputElement>(null)
   const [tagsInput, setTagsInput] = React.useState(
     product ? product.tags.join(", ") : "car, precision-cut"
   )
@@ -87,6 +106,8 @@ export function ProductForm({ product, categories, mode }: ProductFormProps) {
       price: product?.price ?? 89,
       compareAtPrice: product?.compareAtPrice ?? undefined,
       badge: product?.badge ?? "None",
+      isBestSeller: product?.isBestSeller ?? false,
+      isNewArrival: product?.isNewArrival ?? false,
       image: product?.image ?? "",
       images: product?.images ?? [""],
       tags: product?.tags ?? ["car", "precision-cut"],
@@ -108,6 +129,8 @@ export function ProductForm({ product, categories, mode }: ProductFormProps) {
   const watchedBadge = watch("badge")
   const watchedImage = watch("image")
   const watchedVariants = watch("variants")
+  const watchedIsBestSeller = watch("isBestSeller")
+  const watchedIsNewArrival = watch("isNewArrival")
 
   // Auto-slug on create
   function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -155,6 +178,74 @@ export function ProductForm({ product, categories, mode }: ProductFormProps) {
     // submitted so nothing is permanently uploaded if the user cancels.
     setPickedFile(file)
     setPickedPreview(URL.createObjectURL(file))
+    setValue("image", file.name)
+  }
+
+  function handleGalleryFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+
+    const valid: GalleryItem[] = []
+    for (const file of files) {
+      const validationError = validateProductImage(file)
+      if (validationError) {
+        toast.add({
+          type: "error",
+          title: "Invalid Image",
+          description: validationError,
+        })
+        continue
+      }
+      valid.push({ key: makeGalleryKey(), kind: "file", file, preview: URL.createObjectURL(file) })
+    }
+
+    if (valid.length > 0) {
+      setGalleryItems((prev) => [...prev, ...valid])
+    }
+
+    // Reset so picking the same file again re-fires the change event.
+    e.target.value = ""
+  }
+
+  function handleGalleryUrlAdd() {
+    const val = galleryUrlInput.trim()
+    if (!val) return
+
+    if (!isSafeUrl(val)) {
+      toast.add({
+        type: "error",
+        title: "Invalid Image URL",
+        description: "Image URL must be a valid http(s) or internal path.",
+      })
+      return
+    }
+
+    // Avoid duplicate URLs in the gallery.
+    const duplicate = galleryItems.some(
+      (item) => item.kind === "url" && item.url === val
+    )
+    if (duplicate) {
+      toast.add({
+        type: "error",
+        title: "Duplicate URL",
+        description: "This image URL is already in the gallery.",
+      })
+      return
+    }
+
+    setGalleryItems((prev) => [...prev, { key: makeGalleryKey(), kind: "url", url: val }])
+    setGalleryUrlInput("")
+  }
+
+  function handleGalleryUrlKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      handleGalleryUrlAdd()
+    }
+  }
+
+  function handleGalleryRemove(key: string) {
+    setGalleryItems((prev) => prev.filter((item) => item.key !== key))
   }
 
   function onFormError() {
@@ -182,25 +273,39 @@ export function ProductForm({ product, categories, mode }: ProductFormProps) {
         return
       }
 
-      let uploadedUrl: string | null = null
-
-      // Upload a locally-picked file to Firebase right before persisting, so
-      // the upload only happens when the admin actually creates/saves.
       let imageUrl = data.image
-      if (pickedFile) {
-        uploadedUrl = await uploadProductImage(pickedFile)
-        imageUrl = uploadedUrl
-      }
-
-      const finalBadge = data.badge === "None" || !data.badge ? undefined : data.badge
-
-      // Synchronize images array: main image first, keep existing extras.
-      const existingImages = product?.images ?? []
-      const updatedImages = [imageUrl, ...existingImages.filter((img) => img !== imageUrl)]
-
-      const payload = { ...data, badge: finalBadge, image: imageUrl, images: updatedImages }
+      const uploadedUrls: string[] = []
 
       try {
+        // Upload a locally-picked thumbnail to Firebase right before persisting,
+        // so the upload only happens when the admin actually creates/saves.
+        if (pickedFile) {
+          const uploadedUrl = await uploadProductImage(pickedFile)
+          uploadedUrls.push(uploadedUrl)
+          imageUrl = uploadedUrl
+        }
+
+        // Resolve gallery items: local files upload to Firebase now, URLs pass
+        // through unchanged.
+        const galleryUrls: string[] = []
+        for (const item of galleryItems) {
+          if (item.kind === "file") {
+            const uploadedUrl = await uploadProductImage(item.file)
+            uploadedUrls.push(uploadedUrl)
+            galleryUrls.push(uploadedUrl)
+          } else {
+            galleryUrls.push(item.url)
+          }
+        }
+
+        const finalBadge = data.badge === "None" || !data.badge ? undefined : data.badge
+
+        // Synchronize images array: main image first, then gallery extras.
+        // Filter out gallery URLs that duplicate the main image.
+        const updatedImages = [imageUrl, ...galleryUrls.filter((url) => url !== imageUrl)]
+
+        const payload = { ...data, badge: finalBadge, image: imageUrl, images: updatedImages }
+
         if (mode === "edit" && product) {
           await patchProduct(product.id, payload)
           toast.add({
@@ -216,18 +321,23 @@ export function ProductForm({ product, categories, mode }: ProductFormProps) {
             description: `${data.name} published to catalog.`,
           })
         }
+
+        // Success. While editing, delete any images the DB no longer references
+        // (swapped thumbnail or removed gallery images).
+        if (mode === "edit" && product) {
+          const oldImages = [product.image, ...(product.images ?? [])]
+          const removedImages = oldImages.filter((img) => !updatedImages.includes(img))
+          for (const img of removedImages) {
+            await deleteFirebaseImageSafe(img)
+          }
+        }
       } catch (err) {
-        // DB write failed after upload — remove the orphaned image.
-        if (uploadedUrl) {
-          await deleteFirebaseImage(uploadedUrl)
+        // Any failure after at least one upload (partial upload chain, DB write,
+        // etc.) — remove every image uploaded in this attempt.
+        for (const url of uploadedUrls) {
+          await deleteFirebaseImageSafe(url)
         }
         throw err
-      }
-
-      // New image uploaded while editing — remove the old Firebase image
-      // now that the DB points at the new one.
-      if (uploadedUrl && product?.image && product.image !== uploadedUrl) {
-        await deleteFirebaseImageSafe(product.image)
       }
 
       router.push("/admin/products")
@@ -470,6 +580,56 @@ export function ProductForm({ product, categories, mode }: ProductFormProps) {
             </CardContent>
           </Card>
 
+          {/* Storefront Placement */}
+          <Card className="border bg-card shadow-xs">
+            <CardHeader className="pb-3">
+              <CardTitle className="font-heading text-base font-semibold">
+                Storefront Placement
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Featured sections on the homepage — toggle to show this product there
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 text-xs">
+              <div className="flex items-center justify-between gap-4 rounded-lg border p-3.5">
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-xs text-foreground">
+                    Fan Favourite (Best Seller)
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Show this product in the &quot;Fan Favourites&quot; / best-sellers section on
+                    the homepage.
+                  </span>
+                </div>
+                <Switch
+                  checked={watchedIsBestSeller}
+                  onCheckedChange={(checked) =>
+                    setValue("isBestSeller", Boolean(checked), { shouldValidate: true })
+                  }
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border p-3.5">
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-xs text-foreground">
+                    New Arrival / New Drop
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Show this product in the &quot;New Arrivals&quot; section on the homepage.
+                  </span>
+                </div>
+                <Switch
+                  checked={watchedIsNewArrival}
+                  onCheckedChange={(checked) =>
+                    setValue("isNewArrival", Boolean(checked), { shouldValidate: true })
+                  }
+                  disabled={isSubmitting}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Sizing & Dimensions Matrix */}
           <Card className="border bg-card shadow-xs">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
@@ -584,7 +744,7 @@ export function ProductForm({ product, categories, mode }: ProductFormProps) {
           <Card className="border bg-card shadow-xs">
             <CardHeader className="pb-3">
               <CardTitle className="font-heading text-base font-semibold">
-                Artwork Artwork &amp; Photo
+                Artwork &amp; Photo
               </CardTitle>
               <CardDescription className="text-xs">
                 Select from workshop library, upload a file, or provide a custom URL
@@ -628,11 +788,102 @@ export function ProductForm({ product, categories, mode }: ProductFormProps) {
                   id="custom-url"
                   value={customImageUrl}
                   onChange={handleCustomImageUrlChange}
-                  placeholder="https://... image URL"
+                  placeholder="pixels.com img only"
                   className="h-8 text-xs font-mono"
                   disabled={isSubmitting}
                 />
                 {errors.image && <FieldError errors={[{ message: errors.image.message }]} />}
+              </div>
+
+              {/* Additional Gallery Images */}
+              <div className="flex flex-col gap-2 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="gallery-url" className="flex items-center gap-1.5">
+                    <ImageIcon className="size-3.5 text-muted-foreground" />
+                    Additional Gallery Images
+                  </Label>
+                  <span className="text-[10px] text-muted-foreground">
+                    {galleryItems.length} image{galleryItems.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+
+                {galleryItems.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {galleryItems.map((item) => (
+                      <div
+                        key={item.key}
+                        className="group relative aspect-square overflow-hidden rounded-md border bg-muted"
+                      >
+                        <Image
+                          src={item.kind === "file" ? item.preview : item.url}
+                          alt="Gallery image"
+                          fill
+                          sizes="100px"
+                          className="object-cover"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon-xs"
+                          disabled={isSubmitting}
+                          onClick={() => handleGalleryRemove(item.key)}
+                          className="absolute right-1 top-1 opacity-0 transition-opacity group-hover:opacity-100"
+                          title="Remove image"
+                        >
+                          <Trash2Icon className="size-3" />
+                        </Button>
+                        {item.kind === "file" && (
+                          <span className="absolute left-1 bottom-1 rounded bg-black/60 px-1 py-0.5 text-[8px] font-medium text-white">
+                            NEW
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  disabled={isSubmitting}
+                  onClick={() => galleryFileInputRef.current?.click()}
+                  className="gap-1.5 text-xs"
+                >
+                  <UploadIcon className="size-3.5" />
+                  Upload Gallery Images
+                </Button>
+                <input
+                  ref={galleryFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleGalleryFileChange}
+                />
+
+                <div className="flex gap-1.5">
+                  <Input
+                    id="gallery-url"
+                    value={galleryUrlInput}
+                    onChange={(e) => setGalleryUrlInput(e.target.value)}
+                    onKeyDown={handleGalleryUrlKeyDown}
+                    placeholder="https://… (add gallery image URL)"
+                    className="h-8 flex-1 text-xs font-mono"
+                    disabled={isSubmitting}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGalleryUrlAdd}
+                    disabled={isSubmitting || !galleryUrlInput.trim()}
+                    className="h-8 text-xs gap-1"
+                  >
+                    <PlusIcon className="size-3.5" />
+                    Add
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -649,7 +900,7 @@ export function ProductForm({ product, categories, mode }: ProductFormProps) {
               <div className="flex flex-col overflow-hidden rounded-lg border bg-background shadow-xs">
                 <div className="relative aspect-square w-full overflow-hidden bg-muted">
                   <Image
-                    src={watchedImage || ""}
+                    src={pickedPreview || watchedImage || ""}
                     alt={watchedName || "Preview"}
                     fill
                     sizes="300px"

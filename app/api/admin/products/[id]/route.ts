@@ -64,6 +64,8 @@ export async function PATCH(
       image: data.image.trim(),
       images: data.images.map((i) => i.trim()).filter(Boolean),
       badge: data.badge?.trim() || null,
+      isBestSeller: data.isBestSeller ?? false,
+      isNewArrival: data.isNewArrival ?? false,
       tags: data.tags.map((t) => t.trim().toLowerCase()).filter(Boolean),
       variants: data.variants.map((v) => ({
         name: v.name.trim(),
