@@ -15,6 +15,8 @@ import {
   StoreIcon,
   ShieldCheckIcon,
   UsersIcon,
+  MegaphoneIcon,
+  GalleryVerticalEndIcon,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -51,6 +53,18 @@ export const ADMIN_NAV_ITEMS = [
     href: "/admin/custom-orders",
     icon: SparklesIcon,
     badgeKey: "newCustomOrders",
+  },
+  {
+    title: "Promotions",
+    href: "/admin/promotions",
+    icon: MegaphoneIcon,
+    badgeKey: null,
+  },
+  {
+    title: "Hero Sliders",
+    href: "/admin/hero-sliders",
+    icon: GalleryVerticalEndIcon,
+    badgeKey: null,
   },
   {
     title: "Customer Reviews",

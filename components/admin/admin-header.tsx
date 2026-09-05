@@ -64,6 +64,8 @@ export function AdminHeader() {
     if (pathname.includes("/admin/categories")) return "Categories Management"
     if (pathname.includes("/admin/orders")) return "Orders & Fulfillment"
     if (pathname.includes("/admin/custom-orders")) return "Custom Orders"
+    if (pathname.includes("/admin/promotions")) return "Promotions & Hero Banners"
+    if (pathname.includes("/admin/hero-sliders")) return "Hero Sliders"
     if (pathname.includes("/admin/reviews")) return "Customer Reviews Moderation"
     if (pathname.includes("/admin/settings")) return "Store Settings"
     return "Dashboard"

@@ -156,3 +156,21 @@ model ProductVariant {
 
   @@index([productId])
 }
+
+model HeroSlide {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  subtitle  String
+  image     String
+  alt       String
+  ctaLabel  String
+  ctaHref   String
+  order     Int      @default(0) @map("sortOrder")
+  isActive  Boolean  @default(true)
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([isDeleted])
+}

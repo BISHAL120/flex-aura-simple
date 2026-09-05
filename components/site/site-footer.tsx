@@ -6,6 +6,8 @@ import { Container } from "@/components/site/container"
 const shopLinks = [
   { label: "Shop All", href: "/shop" },
   { label: "Custom Order Request", href: "/custom-order" },
+  { label: "Custom Metal Art", href: "/promotions/custom-metal-art" },
+  { label: "Backlit LED", href: "/promotions/backlit-collection" },
   { label: "New Drops", href: "/#new-arrivals" },
   { label: "Fan Favourites", href: "/#best-sellers" },
 ]

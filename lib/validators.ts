@@ -147,6 +147,7 @@ export type NewsletterFormValues = z.infer<typeof newsletterSchema>
 // ---------------------------------------------------------------------------
 
 export const heroSlideSchema = z.object({
+  id: z.string().optional(),
   title: z.string().min(2, "Title is required"),
   subtitle: z.string().min(2, "Subtitle is required"),
   image: z.string().min(1, "Slide image is required"),
@@ -156,9 +157,13 @@ export const heroSlideSchema = z.object({
     .string()
     .min(1, "CTA link is required")
     .refine(isSafeUrl, "Link must be an internal path (e.g. /shop) or valid http/https URL"),
+  order: z.number().int().min(0, "Order must be 0 or greater").default(0),
+  isActive: z.boolean().default(true),
 })
 
-export type HeroSlideFormValues = z.infer<typeof heroSlideSchema>
+export type HeroSlideFormValues = z.output<typeof heroSlideSchema>
+/** Pre-transform input shape (order/isActive optional, defaulted by zod). */
+export type HeroSlideFormInput = z.input<typeof heroSlideSchema>
 
 export const campaignSchema = z.object({
   slug: z.string().min(2).regex(SLUG_REGEX, "Slug must be lowercase alphanumeric with hyphens"),
@@ -167,7 +172,7 @@ export const campaignSchema = z.object({
   image: z.string().min(1, "Cover image is required"),
   discount: z.string().min(1, "Discount text is required (e.g. 20% OFF)"),
   ctaLabel: z.string().min(2, "CTA label is required"),
-  productIds: z.array(z.string()),
+  productSlugs: z.array(z.string()),
 })
 
 export type CampaignFormValues = z.infer<typeof campaignSchema>
