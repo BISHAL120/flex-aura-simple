@@ -41,6 +41,11 @@ export interface ProductListFilters {
   deletedOnly?: boolean
   /** When true, only returns products with isActive: true (storefront scope). */
   activeOnly?: boolean
+  /**
+   * When true (admin scope), also matches slug and tags in addition to name
+   * and description. Storefront searches stay on name + description only.
+   */
+  broadSearch?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -78,7 +83,7 @@ export const getAllProducts = async (
   filters: ProductListFilters = {}
 ): Promise<ProductListResult> => {
   try {
-    const { search, categorySlug, badge, sort = "newest", deletedOnly = false, activeOnly = false } = filters
+    const { search, categorySlug, badge, sort = "newest", deletedOnly = false, activeOnly = false, broadSearch = false } = filters
     const skip = (page - 1) * perPage
     const limit = perPage
 
@@ -86,11 +91,16 @@ export const getAllProducts = async (
     if (activeOnly) where.isActive = true
 
     if (search) {
+      const extra: Prisma.ProductWhereInput[] = broadSearch
+        ? [
+            { slug: { contains: search, mode: "insensitive" } },
+            { tags: { has: search } },
+          ]
+        : []
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
-        { slug: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
-        { tags: { has: search } },
+        ...extra,
       ]
     }
 

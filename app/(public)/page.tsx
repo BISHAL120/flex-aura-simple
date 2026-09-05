@@ -10,6 +10,7 @@ import { SectionHeading } from "@/components/site/section-heading"
 import { ProductGrid } from "@/components/site/product-grid"
 import { FeatureCards } from "@/components/site/feature-cards"
 import { Perks } from "@/components/site/perks"
+import { WhyChooseUs } from "@/components/site/why-choose-us"
 import { Reviews } from "@/components/site/reviews"
 import { FAQ } from "@/components/site/faq"
 import { Newsletter } from "@/components/public/contact/newsletter"
@@ -116,6 +117,8 @@ export default async function Page() {
       <section className="pb-14 sm:pb-20">
         <Perks />
       </section>
+
+      <WhyChooseUs />
 
       <section className="py-14 sm:py-20">
         <Reviews />

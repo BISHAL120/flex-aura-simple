@@ -46,6 +46,7 @@ export default async function AdminProductsPage({
     badge: badge || undefined,
     sort,
     deletedOnly: deleted,
+    broadSearch: true,
   })
   const products = mapProductsToAdminProducts(result.products)
 

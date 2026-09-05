@@ -2,24 +2,19 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
 import {
   MenuIcon,
-  SearchIcon,
   ShoppingBagIcon,
   SunIcon,
   MoonIcon,
-  TruckIcon,
-  RotateCcwIcon,
-  HeadsetIcon,
 } from "lucide-react"
 
 import { Container } from "@/components/site/container"
 import { useStore } from "@/components/store-provider"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import {
   Sheet,
   SheetTrigger,
@@ -31,6 +26,7 @@ import {
 import { cn } from "@/lib/utils"
 import { authClient } from "@/lib/auth-client"
 import HeaderStrip from "./header-strip"
+import { ProductSearch } from "./product-search"
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -87,33 +83,6 @@ function CartButton() {
   )
 }
 
-function SearchForm({ onSubmitted }: { onSubmitted?: () => void }) {
-  const router = useRouter()
-  const [query, setQuery] = React.useState("")
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const q = query.trim()
-    router.push(q ? `/shop?q=${encodeURIComponent(q)}` : "/shop")
-    setQuery("")
-    onSubmitted?.()
-  }
-
-  return (
-    <form onSubmit={handleSubmit} role="search" className="relative w-full">
-      <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search products…"
-        aria-label="Search products"
-        className="pl-9"
-      />
-    </form>
-  )
-}
-
 export function SiteHeader() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = React.useState(false)
@@ -153,7 +122,7 @@ export function SiteHeader() {
                   <SheetTitle>Flex Aura</SheetTitle>
                 </SheetHeader>
                 <div className="p-4 pb-2">
-                  <SearchForm onSubmitted={() => setMenuOpen(false)} />
+                  <ProductSearch onSubmitted={() => setMenuOpen(false)} inputClassName="h-10" />
                 </div>
                 <nav className="flex flex-col gap-1 p-4">
                   {NAV_LINKS.map((link) => {
@@ -183,7 +152,7 @@ export function SiteHeader() {
 
           {/* Search (hidden on mobile — lives in the sheet) */}
           <div className="hidden w-full max-w-md md:block">
-            <SearchForm />
+            <ProductSearch />
           </div>
 
           {/* Actions */}
