@@ -147,52 +147,76 @@ export interface CustomOrderCreateData {
 }
 
 const ORDER_NUMBER_PREFIX = "CUST-"
-const ORDER_NUMBER_RANDOM_DIGITS = 4
+const ORDER_NUMBER_MIN_WIDTH = 4
 
-function generateOrderNumber(sequence: number): string {
-  const random = Math.floor(
-    Math.pow(10, ORDER_NUMBER_RANDOM_DIGITS - 1) +
-      Math.random() * 9 * Math.pow(10, ORDER_NUMBER_RANDOM_DIGITS - 1)
-  )
-    .toString()
-    .padStart(ORDER_NUMBER_RANDOM_DIGITS, "0")
-  return `${ORDER_NUMBER_PREFIX}${String(sequence).padStart(4, "0")}${random}`
+/**
+ * Parses the numeric sequence from an order number like `CUST-0001`.
+ * Returns null when the value doesn't match the expected pattern (e.g. a
+ * legacy or hand-typed number), so callers can safely fall back to 1.
+ */
+function parseOrderNumberSequence(orderNumber: string): number | null {
+  const match = orderNumber.match(/^CUST-(\d+)$/)
+  if (!match) return null
+  const parsed = Number(match[1])
+  return Number.isSafeInteger(parsed) ? parsed : null
+}
+
+function formatOrderNumber(sequence: number): string {
+  return `${ORDER_NUMBER_PREFIX}${String(sequence).padStart(ORDER_NUMBER_MIN_WIDTH, "0")}`
+}
+
+/** Highest sequence currently in use, or 0 when the collection is empty. */
+async function getMaxOrderNumberSequence(): Promise<number> {
+  const orders = await db.customOrder.findMany({
+    select: { orderNumber: true },
+  })
+  let max = 0
+  for (const order of orders) {
+    const parsed = parseOrderNumberSequence(order.orderNumber)
+    if (parsed !== null && parsed > max) max = parsed
+  }
+  return max
 }
 
 export const createCustomOrder = async (data: CustomOrderCreateData) => {
-  try {
-    // Determine the next sequence for a human-friendly order number.
-    const lastOrder = await db.customOrder.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { orderNumber: true },
-    })
-    let sequence = 1
-    if (lastOrder?.orderNumber?.startsWith(ORDER_NUMBER_PREFIX)) {
-      const parsed = Number(lastOrder.orderNumber.slice(ORDER_NUMBER_PREFIX.length, -ORDER_NUMBER_RANDOM_DIGITS))
-      if (Number.isFinite(parsed)) sequence = parsed + 1
-    }
+  // The next order number is derived from the highest sequence in use and
+  // retried on a unique-conflict so concurrent submissions never collide.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const orderNumber = formatOrderNumber((await getMaxOrderNumberSequence()) + 1)
 
-    return await db.customOrder.create({
-      data: {
-        orderNumber: generateOrderNumber(sequence),
-        customerName: data.customerName.trim(),
-        customerEmail: data.customerEmail.trim().toLowerCase(),
-        customerPhone: data.customerPhone.trim(),
-        country: data.country.trim(),
-        deliveryAddress: data.deliveryAddress?.trim() || null,
-        designRequirement: data.designRequirement.trim(),
-        sizeOption: data.sizeOption,
-        customDimensions: data.customDimensions?.trim() || null,
-        withBacklitLed: data.withBacklitLed,
-        specialRequest: data.specialRequest?.trim() || null,
-        referenceImage: data.referenceImage || null,
-        status: "new",
-      },
-    })
-  } catch (error) {
-    console.error("Error creating custom order:", error)
-    throw new Error("Failed to create custom order")
+    try {
+      return await db.customOrder.create({
+        data: {
+          orderNumber,
+          customerName: data.customerName.trim(),
+          customerEmail: data.customerEmail.trim().toLowerCase(),
+          customerPhone: data.customerPhone.trim(),
+          country: data.country.trim(),
+          deliveryAddress: data.deliveryAddress?.trim() || null,
+          designRequirement: data.designRequirement.trim(),
+          sizeOption: data.sizeOption,
+          customDimensions: data.customDimensions?.trim() || null,
+          withBacklitLed: data.withBacklitLed,
+          specialRequest: data.specialRequest?.trim() || null,
+          referenceImage: data.referenceImage || null,
+          status: "new",
+        },
+      })
+    } catch (error) {
+      // Unique violation on orderNumber means another request won the race;
+      // recompute and try again.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        continue
+      }
+      console.error("Error creating custom order:", error)
+      throw new Error("Failed to create custom order")
+    }
   }
+
+  throw new Error("Failed to create custom order: could not allocate an order number")
 }
 
 export const updateCustomOrder = async (
