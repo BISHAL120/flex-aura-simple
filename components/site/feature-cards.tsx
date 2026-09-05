@@ -4,15 +4,20 @@ import { ArrowRightIcon } from "lucide-react"
 
 import { Container } from "@/components/site/container"
 import { Badge } from "@/components/ui/badge"
-import { campaigns } from "@/lib/data"
+import { getActiveCampaigns } from "@/lib/data-layer/admin/campaigns/campaign-data-layer"
 
-export function FeatureCards() {
+/** Server component: renders the active homepage feature cards from the DB. */
+export async function FeatureCards() {
+  const campaigns = await getActiveCampaigns(2)
+
+  if (campaigns.length === 0) return null
+
   return (
     <Container>
       <div className="grid gap-5 md:grid-cols-2">
         {campaigns.map((campaign) => (
           <Link
-            key={campaign.slug}
+            key={campaign.id}
             href={`/promotions/${campaign.slug}`}
             className="group relative block aspect-[4/3] overflow-hidden rounded-lg sm:aspect-[16/10]"
           >
@@ -25,7 +30,7 @@ export function FeatureCards() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
             <div className="absolute inset-0 flex flex-col justify-end p-6 text-white sm:p-8">
-              <Badge className="mb-3 w-fit bg-white text-black">{campaign.discount}</Badge>
+              <Badge className="mb-3 w-fit bg-white text-black">{campaign.badge}</Badge>
               <h3 className="font-heading text-xl font-semibold sm:text-2xl">
                 {campaign.title}
               </h3>

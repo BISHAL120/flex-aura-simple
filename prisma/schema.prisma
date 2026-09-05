@@ -225,3 +225,23 @@ model Review {
   @@index([isDeleted])
   @@index([rating])
 }
+
+model Campaign {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  slug        String   @unique
+  title       String
+  description String
+  image       String
+  badge       String
+  ctaLabel    String
+  /** Product ids featured on this campaign's landing page. */
+  productIds  String[] @default([])
+  isActive    Boolean  @default(true)
+  isDeleted   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([isDeleted])
+}

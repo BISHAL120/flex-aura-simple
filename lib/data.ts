@@ -27,43 +27,6 @@ export type FAQ = {
   answer: string
 }
 
-export type Campaign = {
-  slug: string
-  title: string
-  description: string
-  image: string
-  discount: string
-  ctaLabel: string
-  /** Product slugs included in this promotion (DB-backed catalog). */
-  productSlugs: string[]
-}
-
-/** Local promo/banner images live in /public/products. */
-const promoImage = (file: string) => `/products/${file}`
-
-export const campaigns: Campaign[] = [
-  {
-    slug: "custom-metal-art",
-    title: "Custom Metal Art",
-    description:
-      "Send us any car, bike, logo, name or design — we laser-cut it in 2mm metal with your choice of size and finish.",
-    image: promoImage("product19.jpeg"),
-    discount: "Custom order",
-    ctaLabel: "Order custom art",
-    productSlugs: ["porsche-911-gt3-rs-rear", "porsche-911-gt3-rs-side"],
-  },
-  {
-    slug: "backlit-collection",
-    title: "Backlit LED Collection",
-    description:
-      "Our backlit range glows with warm LED light — custom bikes, signs and personal pieces that come alive at night.",
-    image: promoImage("product17.jpeg"),
-    discount: "Backlit LED",
-    ctaLabel: "Shop backlit",
-    productSlugs: ["porsche-911-gt3-rs-rear", "porsche-911-gt3-rs-side"],
-  },
-]
-
 export const faqs: FAQ[] = [
   {
     question: "What is the metal art made of?",
@@ -117,8 +80,4 @@ export function formatPrice(value: number) {
     currency: "USD",
     minimumFractionDigits: value % 1 === 0 ? 0 : 2,
   }).format(value)
-}
-
-export function getCampaignBySlug(slug: string) {
-  return campaigns.find((campaign) => campaign.slug === slug)
 }

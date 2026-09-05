@@ -180,12 +180,14 @@ export const campaignSchema = z.object({
   title: z.string().min(2, "Campaign title is required"),
   description: z.string().min(5, "Campaign description is required"),
   image: z.string().min(1, "Cover image is required"),
-  discount: z.string().min(1, "Discount text is required (e.g. 20% OFF)"),
+  badge: z.string().min(1, "Badge text is required (e.g. 20% OFF)"),
   ctaLabel: z.string().min(2, "CTA label is required"),
-  productSlugs: z.array(z.string()),
+  isActive: z.boolean().default(true),
 })
 
-export type CampaignFormValues = z.infer<typeof campaignSchema>
+export type CampaignFormValues = z.output<typeof campaignSchema>
+/** Pre-transform input shape (isActive defaults via zod). */
+export type CampaignFormInput = z.input<typeof campaignSchema>
 
 // ---------------------------------------------------------------------------
 // Review Schema

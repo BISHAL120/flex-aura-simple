@@ -15,6 +15,7 @@ import { FAQ } from "@/components/site/faq"
 import { Newsletter } from "@/components/public/contact/newsletter"
 import { Button } from "@/components/ui/button"
 import { getBestSellers, getNewArrivals } from "@/lib/data-layer/admin/products/product-data-layer"
+import { getActiveCampaigns } from "@/lib/data-layer/admin/campaigns/campaign-data-layer"
 import { mapProductToStoreProduct } from "@/lib/data-layer/admin/products/product-mapper"
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export const revalidate = 60
 export default async function Page() {
   const bestSellers = (await getBestSellers(4)).map(mapProductToStoreProduct)
   const newArrivals = (await getNewArrivals(4)).map(mapProductToStoreProduct)
+  const campaignCount = (await getActiveCampaigns(2)).length
 
   return (
     <div>
@@ -66,26 +68,28 @@ export default async function Page() {
         </Container>
       </section>
 
-      <section aria-labelledby="offers-heading" className="pb-14 sm:pb-20">
-        <Container className="mb-8 flex items-end justify-between gap-4">
-          <SectionHeading
-            id="offers-heading"
-            align="left"
-            eyebrow="Made to order"
-            title="Custom & Backlit"
-            description="Names, logos, dates and designs — cut in metal and lit with warm LEDs."
-          />
-          <Button
-            render={<Link href="/shop" />}
-            nativeButton={false}
-            className="hidden shrink-0 sm:inline-flex"
-          >
-            View all
-            <ArrowRightIcon />
-          </Button>
-        </Container>
-        <FeatureCards />
-      </section>
+      {campaignCount > 0 && (
+        <section aria-labelledby="offers-heading" className="pb-14 sm:pb-20">
+          <Container className="mb-8 flex items-end justify-between gap-4">
+            <SectionHeading
+              id="offers-heading"
+              align="left"
+              eyebrow="Made to order"
+              title="Custom & Backlit"
+              description="Names, logos, dates and designs — cut in metal and lit with warm LEDs."
+            />
+            <Button
+              render={<Link href="/shop" />}
+              nativeButton={false}
+              className="hidden shrink-0 sm:inline-flex"
+            >
+              View all
+              <ArrowRightIcon />
+            </Button>
+          </Container>
+          <FeatureCards />
+        </section>
+      )}
 
       <section id="new-arrivals" aria-labelledby="new-arrivals-heading" className="scroll-mt-20 py-14 sm:py-20">
         <Container className="mb-8 flex items-end justify-between gap-4">
