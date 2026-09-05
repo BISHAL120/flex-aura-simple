@@ -17,6 +17,7 @@ import {
   UsersIcon,
   MegaphoneIcon,
   GalleryVerticalEndIcon,
+  MessagesSquareIcon,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -70,6 +71,12 @@ export const ADMIN_NAV_ITEMS = [
     title: "Customer Reviews",
     href: "/admin/reviews",
     icon: StarIcon,
+    badgeKey: null,
+  },
+  {
+    title: "Contact Submissions",
+    href: "/admin/contact-submissions",
+    icon: MessagesSquareIcon,
     badgeKey: null,
   },
   {

@@ -29,6 +29,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+import { authClient } from "@/lib/auth-client"
 import HeaderStrip from "./header-strip"
 
 const NAV_LINKS = [
@@ -116,6 +117,12 @@ function SearchForm({ onSubmitted }: { onSubmitted?: () => void }) {
 export function SiteHeader() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = React.useState(false)
+  const { data: session, isPending: sessionPending } = authClient.useSession()
+
+  // The client session type doesn't model the server-added `role` field, so
+  // read it defensively. Only authenticated ADMIN users get the Admin button.
+  const role = session?.user ? (session.user as { role?: string[] }).role : undefined
+  const isAdmin = !sessionPending && !!session?.user && Array.isArray(role) && role.includes("ADMIN")
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
@@ -181,16 +188,17 @@ export function SiteHeader() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-
-            <Button
-              variant="outline"
-              size="sm"
-              render={<Link href="/admin" />}
-              nativeButton={false}
-              className="hidden sm:inline-flex text-xs h-8 gap-1.5 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20"
-            >
-              <span>Admin</span>
-            </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                render={<Link href="/admin" />}
+                nativeButton={false}
+                className="hidden sm:inline-flex text-xs h-8 gap-1.5 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20"
+              >
+                <span>Admin</span>
+              </Button>
+            )}
 
             <ThemeToggle />
             <div className="relative">

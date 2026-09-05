@@ -134,10 +134,22 @@ export type CustomOrderSubmitInput = z.infer<typeof customOrderSchema> & {
 // ---------------------------------------------------------------------------
 
 export const contactSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Valid email address is required"),
-  subject: z.string().min(2, "Subject must be at least 2 characters"),
-  message: z.string().min(10, "Message must be at least 10 characters"),
+  name: z
+    .string()
+    .min(2, "Name must be at least 2 characters")
+    .max(100, "Name must be 100 characters or fewer"),
+  email: z
+    .string()
+    .email("Valid email address is required")
+    .max(254, "Email must be 254 characters or fewer"),
+  subject: z
+    .string()
+    .min(2, "Subject must be at least 2 characters")
+    .max(150, "Subject must be 150 characters or fewer"),
+  message: z
+    .string()
+    .min(10, "Message must be at least 10 characters")
+    .max(3000, "Message must be 3000 characters or fewer"),
 })
 
 export type ContactFormValues = z.infer<typeof contactSchema>
