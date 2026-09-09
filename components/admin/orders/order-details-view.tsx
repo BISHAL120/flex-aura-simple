@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import {
   ArrowLeftIcon,
   PrinterIcon,
@@ -16,7 +17,6 @@ import {
   MapPinIcon,
   CreditCardIcon,
   SaveIcon,
-  FlameIcon,
   BoxIcon,
 } from "lucide-react"
 
@@ -27,67 +27,77 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatPrice } from "@/lib/data"
-import { toast } from "@/components/ui/toast"
+import { showError, showSuccess } from "@/lib/toast"
 import { getOrderStatusBadge } from "@/components/admin/overview/recent-orders-table"
-import type { AdminOrder, OrderItem, OrderStatus } from "@/lib/admin-data"
+import { patchOrder } from "@/lib/data-layer/admin/orders/order-actions"
+import type { AdminOrder, OrderItem, OrderStatus } from "@/lib/admin-orders-data"
 
 const STATUS_STEPS: { status: OrderStatus; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { status: "pending", label: "Order Placed", icon: ClockIcon },
-  { status: "processing", label: "CAD Queued", icon: SparklesIcon },
-  { status: "in-production", label: "Laser Cutting", icon: FlameIcon },
-  { status: "powder-coating", label: "Powder Coating", icon: BoxIcon },
+  { status: "processing", label: "Processing", icon: SparklesIcon },
   { status: "shipped", label: "Dispatched", icon: TruckIcon },
   { status: "delivered", label: "Delivered", icon: CheckCircle2Icon },
 ]
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: "pending", label: "Pending (New Order Placed)" },
-  { value: "processing", label: "Processing (CAD Model Prepared)" },
-  { value: "in-production", label: "In Laser Production (2mm Fibre Laser)" },
-  { value: "powder-coating", label: "Powder Coating (Matte Black Finish)" },
+  { value: "processing", label: "Processing (Preparing Order)" },
   { value: "shipped", label: "Shipped / Dispatched with Carrier" },
   { value: "delivered", label: "Delivered to Customer" },
-  { value: "cancelled", label: "Cancelled / Refunded" },
+  { value: "cancelled", label: "Cancelled" },
 ]
 
 function getStepIndex(status: OrderStatus) {
-  switch (status) {
-    case "pending":
-      return 0
-    case "processing":
-      return 1
-    case "in-production":
-      return 2
-    case "powder-coating":
-      return 3
-    case "shipped":
-      return 4
-    case "delivered":
-      return 5
-    default:
-      return -1
-  }
+  const index = STATUS_STEPS.findIndex((s) => s.status === status)
+  return index
 }
 
 export function OrderDetailsView({ order: initialOrder }: { order: AdminOrder }) {
+  const router = useRouter()
   const liveOrder = initialOrder
 
   const [currentStatus, setCurrentStatus] = React.useState<OrderStatus>(liveOrder.status)
   const [trackingNumber, setTrackingNumber] = React.useState(liveOrder.trackingNumber ?? "")
   const [notes, setNotes] = React.useState(liveOrder.notes ?? "")
+  const [saving, setSaving] = React.useState(false)
   const [savedSuccess, setSavedSuccess] = React.useState(false)
 
   const activeStepIdx = getStepIndex(currentStatus)
 
-  function handleSaveStatus(e: React.FormEvent) {
-    e.preventDefault()
-    toast.add({
-      type: "success",
-      title: "Order updated",
-      description: "Order status, tracking, and notes saved successfully.",
+  async function save(payload: Record<string, unknown>) {
+    if (saving) return
+    setSaving(true)
+    try {
+      await patchOrder(order.id, payload)
+      router.refresh()
+      setSavedSuccess(true)
+      setTimeout(() => setSavedSuccess(false), 2500)
+      return true
+    } catch (err) {
+      showError({ message: err instanceof Error ? err.message : "Failed to save order" })
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSaveStatus() {
+    const ok = await save({
+      status: currentStatus,
+      trackingNumber: trackingNumber.trim() || null,
+      notes: notes.trim() || null,
     })
-    setSavedSuccess(true)
-    setTimeout(() => setSavedSuccess(false), 2500)
+    if (ok) {
+      showSuccess({
+        title: "Order updated",
+        description: "Order status, tracking, and notes saved successfully.",
+      })
+    }
+  }
+
+  async function handleMarkPaid() {
+    const ok = await save({ paymentStatus: "paid" })
+    if (ok) showSuccess({ title: "Payment marked paid", description: "Payment status updated." })
   }
 
   function handlePrint() {
@@ -161,12 +171,12 @@ export function OrderDetailsView({ order: initialOrder }: { order: AdminOrder })
             <CardTitle className="font-heading text-sm font-semibold flex items-center justify-between">
               <span>Workshop Fulfillment Lifecycle</span>
               <span className="text-xs font-normal text-muted-foreground">
-                Step {activeStepIdx + 1} of 6
+                Step {Math.max(activeStepIdx + 1, 0)} of {STATUS_STEPS.length}
               </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {STATUS_STEPS.map((step, idx) => {
                 const StepIcon = step.icon
                 const isCompleted = activeStepIdx >= idx
@@ -176,7 +186,10 @@ export function OrderDetailsView({ order: initialOrder }: { order: AdminOrder })
                   <button
                     key={step.status}
                     type="button"
-                    onClick={() => setCurrentStatus(step.status)}
+                    onClick={() => {
+                      setCurrentStatus(step.status)
+                      void save({ status: step.status })
+                    }}
                     className={`flex flex-col items-center gap-2 rounded-lg border p-3 text-center transition-all ${
                       isCurrent
                         ? "border-primary bg-primary/10 text-primary font-semibold ring-2 ring-primary/20"
@@ -440,6 +453,19 @@ export function OrderDetailsView({ order: initialOrder }: { order: AdminOrder })
                   {order.paymentStatus.toUpperCase()}
                 </Badge>
               </div>
+              {order.paymentStatus !== "paid" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMarkPaid}
+                  disabled={saving}
+                  className="self-end h-7 gap-1.5 text-xs"
+                >
+                  <CreditCardIcon className="size-3.5" />
+                  <span>Mark as Paid</span>
+                </Button>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Order Reference</span>
                 <span className="font-mono text-[11px] text-muted-foreground">

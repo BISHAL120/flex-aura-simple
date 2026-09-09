@@ -267,3 +267,40 @@ enum ContactStatus {
   replied
   archived
 }
+
+enum OrderStatus {
+  pending
+  processing
+  shipped
+  delivered
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  refunded
+}
+
+model Order {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber     String        @unique
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  shippingAddress Json
+  items           Json
+  subtotal        Int
+  shipping        Int
+  total           Int
+  status          OrderStatus   @default(pending)
+  paymentStatus   PaymentStatus @default(pending)
+  paymentMethod   String        @default("Cash on Delivery")
+  trackingNumber  String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status])
+  @@index([customerEmail])
+}

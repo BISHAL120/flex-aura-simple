@@ -1,27 +1,35 @@
-"use client"
-
-import * as React from "react"
-import { useParams } from "next/navigation"
+import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowLeftIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { initialOrders } from "@/lib/admin-data"
 import { OrderDetailsView } from "@/components/admin/orders/order-details-view"
+import {
+  getOrderById,
+  getOrderByOrderNumber,
+} from "@/lib/data-layer/admin/orders/order-data-layer"
+import { mapOrderToAdminOrder } from "@/lib/data-layer/admin/orders/order-mapper"
 
-export default function AdminOrderDetailsPage() {
-  const params = useParams()
-  const id = params?.id as string
+export const metadata: Metadata = {
+  title: "Order Details — Flex Aura Admin",
+  description: "Review and update a customer order's status, tracking, and notes.",
+}
 
-  const order = React.useMemo(() => {
-    return initialOrders.find((o) => o.id === id || o.orderNumber.toLowerCase() === id?.toLowerCase())
-  }, [id])
+export default async function AdminOrderDetailsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
 
-  if (!order) {
+  // The URL may reference either the Mongo id or the human order number.
+  const dbOrder = (await getOrderById(id)) ?? (await getOrderByOrderNumber(id))
+
+  if (!dbOrder) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
         <h2 className="font-heading text-xl font-bold">Order Not Found</h2>
-        <p className="text-xs text-muted-foreground max-w-sm">
+        <p className="max-w-sm text-xs text-muted-foreground">
           No customer order matching &quot;{id}&quot; was found in the workshop system.
         </p>
         <Button
@@ -37,5 +45,7 @@ export default function AdminOrderDetailsPage() {
     )
   }
 
-  return <OrderDetailsView key={order.id} order={order} />
+  return (
+    <OrderDetailsView key={dbOrder.id} order={mapOrderToAdminOrder(dbOrder)} />
+  )
 }

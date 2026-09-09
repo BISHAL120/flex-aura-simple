@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { SearchIcon, EyeIcon, ExternalLinkIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -18,7 +19,13 @@ import { formatPrice } from "@/lib/data"
 import { getOrderStatusBadge } from "@/components/admin/overview/recent-orders-table"
 import { OrderDetailsSheet } from "@/components/admin/orders/order-details-sheet"
 import { DataPagination } from "@/components/admin/common/data-pagination"
-import { initialOrders, type AdminOrder, type OrderItem } from "@/lib/admin-data"
+import type { AdminOrder, OrderItem } from "@/lib/admin-orders-data"
+import type { OrderStatus } from "@prisma/client"
+
+const SEARCH_DEBOUNCE_MS = 500
+const DEFAULT_PAGE_SIZE = 6
+
+type OrderCounts = Record<OrderStatus | "all", number>
 
 const STATUS_TABS: { label: string; value: string }[] = [
   { label: "All Orders", value: "all" },
@@ -31,58 +38,107 @@ const STATUS_TABS: { label: string; value: string }[] = [
   { label: "Cancelled", value: "cancelled" },
 ]
 
-export function OrderTable() {
-  const orders: AdminOrder[] = initialOrders
-  const [activeTab, setActiveTab] = React.useState("all")
-  const [search, setSearch] = React.useState("")
-  const [page, setPage] = React.useState(1)
-  const [pageSize, setPageSize] = React.useState(6)
+interface OrderTableProps {
+  orders: AdminOrder[]
+  counts: OrderCounts
+  total: number
+  totalPages: number
+  search: string
+  status: string
+  page: number
+  pageSize: number
+}
 
+type CommittedState = {
+  search: string
+  status: string
+  page: number
+  pageSize: number
+}
+
+function buildQuery(state: CommittedState) {
+  const params = new URLSearchParams()
+  if (state.search) params.set("search", state.search)
+  if (state.status !== "all") params.set("status", state.status)
+  if (state.page !== 1) params.set("page", String(state.page))
+  if (state.pageSize !== DEFAULT_PAGE_SIZE) params.set("per_page", String(state.pageSize))
+  const qs = params.toString()
+  return qs ? `/admin/orders?${qs}` : "/admin/orders"
+}
+
+export function OrderTable({
+  orders,
+  counts,
+  total,
+  totalPages,
+  search,
+  status,
+  page,
+  pageSize,
+}: OrderTableProps) {
+  const router = useRouter()
+  const [searchInput, setSearchInput] = React.useState(search)
+  const searchFocusedRef = React.useRef(false)
+  const committedRef = React.useRef<CommittedState>({ search, status, page, pageSize })
+  const pendingSizeRef = React.useRef<number | null>(null)
   const [selectedOrder, setSelectedOrder] = React.useState<AdminOrder | null>(null)
   const [sheetOpen, setSheetOpen] = React.useState(false)
 
-  const filtered = React.useMemo(() => {
-    let list = [...orders]
+  React.useEffect(() => {
+    committedRef.current = { search, status, page, pageSize }
+  }, [search, status, page, pageSize])
 
-    if (activeTab !== "all") {
-      list = list.filter((o) => o.status === activeTab)
-    }
+  React.useEffect(() => {
+    if (searchFocusedRef.current) return
+    setSearchInput(search)
+  }, [search])
 
-    const q = search.trim().toLowerCase()
-    if (q) {
-      list = list.filter(
-        (o) =>
-          o.orderNumber.toLowerCase().includes(q) ||
-          o.customerName.toLowerCase().includes(q) ||
-          o.customerEmail.toLowerCase().includes(q) ||
-          o.shippingAddress.city.toLowerCase().includes(q) ||
-          o.shippingAddress.country.toLowerCase().includes(q) ||
-          o.items.some((item) => item.productName.toLowerCase().includes(q))
-      )
-    }
+  const navigate = React.useCallback(
+    (overrides: Partial<CommittedState>) => {
+      const next = { ...committedRef.current, ...overrides }
+      committedRef.current = next
+      router.push(buildQuery(next), { scroll: false })
+    },
+    [router]
+  )
 
-    return list.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-  }, [orders, activeTab, search])
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const next = searchInput.trim()
+      if (next !== committedRef.current.search) navigate({ search: next, page: 1 })
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [searchInput, navigate])
 
-  const totalPages = Math.ceil(filtered.length / pageSize) || 1
-  const safePage = Math.max(1, Math.min(page, totalPages))
-  const paginatedOrders = React.useMemo(() => {
-    const start = (safePage - 1) * pageSize
-    return filtered.slice(start, start + pageSize)
-  }, [filtered, safePage, pageSize])
+  const handleSearchBlur = () => {
+    searchFocusedRef.current = false
+    const next = searchInput.trim()
+    if (next !== committedRef.current.search) navigate({ search: next, page: 1 })
+  }
+  const handleSearchFocus = () => {
+    searchFocusedRef.current = true
+  }
+
+  function handleStatusChange(next: string) {
+    navigate({ status: next, page: 1 })
+  }
+
+  function handlePageChange(nextPage: number) {
+    const size = pendingSizeRef.current
+    pendingSizeRef.current = null
+    navigate(size !== null ? { pageSize: size, page: nextPage } : { page: nextPage })
+  }
+  function handlePageSizeChange(nextSize: number) {
+    pendingSizeRef.current = nextSize
+  }
 
   function handleOpenOrder(order: AdminOrder) {
     setSelectedOrder(order)
     setSheetOpen(true)
   }
 
-  // Count helper
-  const getTabCount = (tabValue: string) => {
-    if (tabValue === "all") return orders.length
-    return orders.filter((o) => o.status === tabValue).length
-  }
+  const getTabCount = (value: string) =>
+    value === "all" ? counts.all : counts[value as OrderStatus] ?? 0
 
   return (
     <div className="flex flex-col gap-5">
@@ -91,12 +147,11 @@ export function OrderTable() {
         <div className="relative w-full max-w-sm">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-            placeholder="Search by order #, customer, email, city…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onFocus={handleSearchFocus}
+            onBlur={handleSearchBlur}
+            placeholder="Search by order #, customer, email…"
             className="h-9 pl-9 text-xs"
           />
         </div>
@@ -105,15 +160,12 @@ export function OrderTable() {
         <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 text-xs">
           {STATUS_TABS.map((tab) => {
             const count = getTabCount(tab.value)
-            const isActive = activeTab === tab.value
+            const isActive = status === tab.value
             return (
               <button
                 key={tab.value}
                 type="button"
-                onClick={() => {
-                  setActiveTab(tab.value)
-                  setPage(1)
-                }}
+                onClick={() => handleStatusChange(tab.value)}
                 className={`flex items-center gap-1.5 rounded-full px-3 py-1 font-medium transition-colors ${
                   isActive
                     ? "bg-primary text-primary-foreground shadow-xs"
@@ -153,8 +205,8 @@ export function OrderTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedOrders.length > 0 ? (
-                paginatedOrders.map((order) => (
+              {orders.length > 0 ? (
+                orders.map((order) => (
                   <TableRow
                     key={order.id}
                     onClick={() => handleOpenOrder(order)}
@@ -234,7 +286,7 @@ export function OrderTable() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={8} className="h-32 text-center text-xs text-muted-foreground">
-                    No orders found matching status &quot;{activeTab}&quot; or search query.
+                    No orders found matching status &quot;{status}&quot; or search query.
                   </TableCell>
                 </TableRow>
               )}
@@ -246,11 +298,11 @@ export function OrderTable() {
         <DataPagination
           currentPage={page}
           totalPages={totalPages}
-          totalItems={filtered.length}
+          totalItems={total}
           pageSize={pageSize}
           pageSizeOptions={[6, 12, 24, 48]}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
           itemName="orders"
         />
       </div>

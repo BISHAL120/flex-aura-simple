@@ -40,7 +40,6 @@ const CheckoutPage = () => {
   const { cartItems, subtotal, clearCart } = useStore()
   const [step, setStep] = React.useState<Step>("details")
   const [pending, setPending] = React.useState(false)
-  const timerRef = React.useRef<number | null>(null)
 
   // Step 1 Form
   const detailsForm = useForm<CheckoutDetailsFormValues>({
@@ -68,12 +67,6 @@ const CheckoutPage = () => {
     },
   })
 
-  React.useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) window.clearTimeout(timerRef.current)
-    }
-  }, [])
-
   const shipping = getShipping(subtotal)
   const total = subtotal + shipping
 
@@ -89,14 +82,52 @@ const CheckoutPage = () => {
     })
   }
 
-  function onPaymentSubmit(_data: CheckoutPaymentFormValues) {
+  async function onPaymentSubmit(_data: CheckoutPaymentFormValues) {
     if (pending || cartItems.length === 0) return
 
-    setPending(true)
-    const orderNumber = `FA-${(typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)).slice(0, 8).toUpperCase()}`
-    writeStoredOrder({ orderNumber, total })
+    const details = detailsForm.getValues()
+    if (!details.email || !details.address) {
+      setStep("details")
+      toast.add({
+        type: "error",
+        title: "Details required",
+        description: "Please complete your shipping details first.",
+      })
+      return
+    }
 
-    timerRef.current = window.setTimeout(() => {
+    setPending(true)
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          details: {
+            firstName: details.firstName,
+            lastName: details.lastName,
+            email: details.email,
+            phone: details.phone,
+            address: details.address,
+            city: details.city,
+            zip: details.zip,
+            country: details.country,
+          },
+          items: cartItems.map((item) => ({
+            productId: item.product.id,
+            variant: item.variant,
+            quantity: item.quantity,
+          })),
+        }),
+      })
+
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.order) {
+        throw new Error(data?.message || "Something went wrong placing your order.")
+      }
+
+      const orderNumber: string = data.order.orderNumber
+      const orderTotal: number = data.order.total
+      writeStoredOrder({ orderNumber, total: orderTotal })
       clearCart()
       setPending(false)
       toast.add({
@@ -105,7 +136,14 @@ const CheckoutPage = () => {
         description: `Your order #${orderNumber} has been received.`,
       })
       router.push("/order-confirmation")
-    }, 900)
+    } catch (err) {
+      setPending(false)
+      toast.add({
+        type: "error",
+        title: "Order failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+      })
+    }
   }
 
   function onPaymentError() {

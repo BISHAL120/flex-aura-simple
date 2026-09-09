@@ -14,6 +14,11 @@ import {
   getRecentOpenCustomOrders,
 } from "@/lib/data-layer/admin/custom-orders/custom-order-data-layer"
 import { mapCustomOrdersToAdminCustomOrders } from "@/lib/data-layer/admin/custom-orders/custom-order-mapper"
+import {
+  getOrderDashboardStats,
+  getRecentOrders,
+} from "@/lib/data-layer/admin/orders/order-data-layer"
+import { mapOrdersToAdminOrders } from "@/lib/data-layer/admin/orders/order-mapper"
 
 export const metadata: Metadata = {
   title: "Admin Overview — Flex Aura",
@@ -21,11 +26,14 @@ export const metadata: Metadata = {
 }
 
 export default async function AdminOverviewPage() {
-  const [customOrderCounts, recentCustomOrders] = await Promise.all([
+  const [customOrderCounts, recentCustomOrders, orderStats, recentOrders] = await Promise.all([
     getCustomOrderDashboardCounts(),
     getRecentOpenCustomOrders(4),
+    getOrderDashboardStats(),
+    getRecentOrders(5),
   ])
   const recentCustom = mapCustomOrdersToAdminCustomOrders(recentCustomOrders)
+  const recent = mapOrdersToAdminOrders(recentOrders)
 
   return (
     <div className="flex flex-col gap-6">
@@ -64,7 +72,7 @@ export default async function AdminOverviewPage() {
       </div>
 
       {/* KPI Cards */}
-      <KPICards customOrderCounts={customOrderCounts} />
+      <KPICards customOrderCounts={customOrderCounts} orderCounts={orderStats} />
 
       {/* Charts Grid */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -78,7 +86,7 @@ export default async function AdminOverviewPage() {
 
       {/* Tables Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <RecentOrdersTable />
+        <RecentOrdersTable orders={recent} />
         <PendingCustomOrders orders={recentCustom} />
       </div>
     </div>

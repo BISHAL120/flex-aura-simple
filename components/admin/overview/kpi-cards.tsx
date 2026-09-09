@@ -12,7 +12,6 @@ import {
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { formatPrice } from "@/lib/data"
-import { initialOrders, type AdminOrder } from "@/lib/admin-data"
 
 interface KPICardsProps {
   customOrderCounts: {
@@ -20,34 +19,36 @@ interface KPICardsProps {
     openCount: number
     inProductionCount: number
   }
+  orderCounts: {
+    total: number
+    openCount: number
+    /** Revenue from non-cancelled orders in USD dollars. */
+    revenue: number
+  }
 }
 
-export function KPICards({ customOrderCounts }: KPICardsProps) {
-  const orders: AdminOrder[] = initialOrders
-
-  // Calculate live dynamic metrics from store
-  const totalRevenue = orders.reduce((sum: number, order: AdminOrder) => sum + order.total, 0)
-  const averageOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0
-  const pendingProduction = orders.filter(
-    (o: AdminOrder) => o.status === "in-production" || o.status === "powder-coating" || o.status === "processing"
-  ).length
+export function KPICards({ customOrderCounts, orderCounts }: KPICardsProps) {
+  // Calculate live dynamic metrics from DB orders
+  const totalRevenue = orderCounts.revenue
+  const averageOrderValue = orderCounts.total > 0 ? totalRevenue / orderCounts.total : 0
+  const pendingProduction = orderCounts.openCount
   const pendingCustomOrders = customOrderCounts.openCount
 
   const kpis = [
     {
       title: "Total Revenue",
-      value: formatPrice(totalRevenue + 42850), // base store revenue + active demo
-      subtitle: "+14.2% from last month",
-      trend: "up",
+      value: formatPrice(totalRevenue),
+      subtitle: "From placed orders",
+      trend: "neutral",
       icon: DollarSignIcon,
       accent: "text-emerald-500",
       bgAccent: "bg-emerald-500/10",
     },
     {
       title: "Total Orders",
-      value: (orders.length + 384).toString(),
-      subtitle: `${pendingProduction} in laser cutting & coating`,
-      trend: "neutral",
+      value: orderCounts.total.toString(),
+      subtitle: `${pendingProduction} awaiting fulfilment`,
+      trend: pendingProduction > 0 ? "action" : "neutral",
       icon: ShoppingBagIcon,
       accent: "text-blue-500",
       bgAccent: "bg-blue-500/10",
@@ -63,9 +64,9 @@ export function KPICards({ customOrderCounts }: KPICardsProps) {
     },
     {
       title: "Avg. Order Value",
-      value: formatPrice(averageOrderValue > 0 ? averageOrderValue : 111.58),
-      subtitle: "Includes multi-variant sets",
-      trend: "up",
+      value: formatPrice(averageOrderValue),
+      subtitle: "Per placed order",
+      trend: "neutral",
       icon: LayersIcon,
       accent: "text-purple-500",
       bgAccent: "bg-purple-500/10",

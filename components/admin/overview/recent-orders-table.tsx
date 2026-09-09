@@ -16,9 +16,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatPrice } from "@/lib/data"
-import { initialOrders, type OrderStatus, type AdminOrder } from "@/lib/admin-data"
+import type { AdminOrder } from "@/lib/admin-orders-data"
 
-export function getOrderStatusBadge(status: OrderStatus) {
+export function getOrderStatusBadge(status: string) {
   switch (status) {
     case "pending":
       return <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">Pending</Badge>
@@ -39,8 +39,7 @@ export function getOrderStatusBadge(status: OrderStatus) {
   }
 }
 
-export function RecentOrdersTable() {
-  const orders: AdminOrder[] = initialOrders
+export function RecentOrdersTable({ orders }: { orders: AdminOrder[] }) {
   const recentOrders = React.useMemo(() => {
     return [...orders]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

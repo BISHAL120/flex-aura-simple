@@ -3,6 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   ShoppingBagIcon,
   MapPinIcon,
@@ -26,15 +27,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { formatPrice } from "@/lib/data"
-import { toast } from "@/components/ui/toast"
 import { getOrderStatusBadge } from "@/components/admin/overview/recent-orders-table"
-import type { AdminOrder, OrderStatus } from "@/lib/admin-data"
+import { showError, showSuccess } from "@/lib/toast"
+import { patchOrder } from "@/lib/data-layer/admin/orders/order-actions"
+import type { AdminOrder, OrderStatus } from "@/lib/admin-orders-data"
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: "pending", label: "Pending (New Order)" },
   { value: "processing", label: "Processing" },
-  { value: "in-production", label: "Laser Cutting (Fibre Laser)" },
-  { value: "powder-coating", label: "Powder Coating (Black Matte)" },
   { value: "shipped", label: "Shipped / Dispatched" },
   { value: "delivered", label: "Delivered" },
   { value: "cancelled", label: "Cancelled" },
@@ -51,11 +51,13 @@ export function OrderDetailsSheet({
   onOpenChange,
   order: initialOrder,
 }: OrderDetailsSheetProps) {
+  const router = useRouter()
   const liveOrder = initialOrder
 
   const [currentStatus, setCurrentStatus] = React.useState<OrderStatus>("pending")
   const [trackingNumber, setTrackingNumber] = React.useState("")
   const [notes, setNotes] = React.useState("")
+  const [saving, setSaving] = React.useState(false)
 
   React.useEffect(() => {
     if (liveOrder) {
@@ -70,33 +72,43 @@ export function OrderDetailsSheet({
   if (!liveOrder) return null
   const order = liveOrder
 
-  function handleStatusChange(newStatus: OrderStatus) {
+  async function save(payload: Record<string, unknown>) {
+    if (!order || saving) return
+    setSaving(true)
+    try {
+      await patchOrder(order.id, payload)
+      router.refresh()
+    } catch (err) {
+      showError({ message: err instanceof Error ? err.message : "Failed to save order" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleStatusChange(newStatus: OrderStatus) {
     if (!order) return
     setCurrentStatus(newStatus)
-    toast.add({
-      type: "success",
+    await save({ status: newStatus })
+    showSuccess({
       title: "Order status updated",
       description: `Order status set to ${newStatus}.`,
     })
   }
 
-  function handleSaveTracking(e: React.FormEvent) {
+  async function handleSaveTracking(e: React.FormEvent) {
     e.preventDefault()
     if (!order) return
-    toast.add({
-      type: "success",
+    await save({ trackingNumber: trackingNumber.trim() || null })
+    showSuccess({
       title: "Tracking number saved",
       description: `Tracking number set to ${trackingNumber.trim()}.`,
     })
   }
 
-  function handleSaveNotes() {
+  async function handleSaveNotes() {
     if (!order) return
-    toast.add({
-      type: "info",
-      title: "Notes saved",
-      description: "Order notes saved successfully.",
-    })
+    await save({ notes: notes.trim() || null })
+    showSuccess({ title: "Notes saved", description: "Order notes saved successfully." })
   }
 
   return (
@@ -146,7 +158,8 @@ export function OrderDetailsSheet({
             <select
               value={currentStatus}
               onChange={(e) => handleStatusChange(e.target.value as OrderStatus)}
-              className="h-9 w-full rounded-md border bg-background px-3 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={saving}
+              className="h-9 w-full rounded-md border bg-background px-3 text-xs font-medium focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -163,7 +176,7 @@ export function OrderDetailsSheet({
                 placeholder="Tracking code (e.g. DHL-982341772DE)"
                 className="h-8 text-xs font-mono"
               />
-              <Button type="submit" size="sm" variant="secondary" className="h-8 text-xs shrink-0">
+              <Button type="submit" size="sm" variant="secondary" className="h-8 text-xs shrink-0" disabled={saving}>
                 Save Tracking
               </Button>
             </form>
@@ -280,6 +293,7 @@ export function OrderDetailsSheet({
               variant="outline"
               size="sm"
               onClick={handleSaveNotes}
+              disabled={saving}
               className="self-end text-xs h-7"
             >
               Save Notes
